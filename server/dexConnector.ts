@@ -188,14 +188,25 @@ function mapDexScreenerPair(
 }
 
 export async function fetchLiveSolanaDexPairs(query = 'solana'): Promise<DexPairQuote[]> {
-  // Fetch latest Solana token boosts + active search results concurrently
+  // Fetch latest Solana token boosts, latest token profiles, and active DEX search results concurrently
   const byMint = new Map<string, DexPairQuote>();
   const nowIso = new Date().toISOString();
 
   const upsertCandidate = (cand: DexPairQuote | null) => {
     if (!cand) return;
+    // Skip dead/spoofed pools with zero short-term volume or duplicate stable/SOL symbols
+    const cleanSym = cand.symbol.replace(/^\$/, '').toUpperCase();
+    const isSpoofMajor =
+      (cleanSym === 'SOL' || cleanSym === 'WSOL' || cleanSym === 'SOLANA' || cleanSym === 'USDC' || cleanSym === 'USDT') &&
+      cand.volume5mUsd === 0 &&
+      cand.volume1hUsd === 0;
+    if (isSpoofMajor) return;
+    if (cand.volume5mUsd <= 0 && cand.volume1hUsd <= 0 && cand.volume24hUsd < 5000) return;
+
     const prev = byMint.get(cand.mintAddress);
-    if (!prev || cand.liquidityUsd > prev.liquidityUsd) {
+    const candActivity = cand.volume5mUsd * 4 + cand.volume1hUsd;
+    const prevActivity = prev ? prev.volume5mUsd * 4 + prev.volume1hUsd : -1;
+    if (!prev || candActivity > prevActivity || (candActivity === prevActivity && cand.liquidityUsd > prev.liquidityUsd)) {
       byMint.set(cand.mintAddress, cand);
     }
   };
@@ -218,41 +229,60 @@ export async function fetchLiveSolanaDexPairs(query = 'solana'): Promise<DexPair
     }
   };
 
-  const fetchBoostPairs = async () => {
+  const fetchLatestBoostsAndProfiles = async () => {
     try {
-      const boostsRes = await fetch('https://api.dexscreener.com/token-boosts/latest/v1', {
-        signal: AbortSignal.timeout(7000),
-      });
+      const [boostsRes, profilesRes] = await Promise.all([
+        fetch('https://api.dexscreener.com/token-boosts/latest/v1', {
+          signal: AbortSignal.timeout(7000),
+        }),
+        fetch('https://api.dexscreener.com/token-profiles/latest/v1', {
+          signal: AbortSignal.timeout(7000),
+        }),
+      ]);
+
+      const collectedMints: string[] = [];
       if (boostsRes.ok) {
         const boosts = (await boostsRes.json()) as Array<{ chainId?: string; tokenAddress?: string }>;
         assertReadOnlyPayload(boosts, 'DexScreener Boosts');
-        const solMints = Array.from(
-          new Set(
-            boosts
-              .filter(
-                (b) =>
-                  b.chainId === 'solana' &&
-                  b.tokenAddress &&
-                  isValidSolanaBase58(b.tokenAddress) &&
-                  !EXCLUDED_BASE_MINTS.has(b.tokenAddress)
-              )
-              .map((b) => b.tokenAddress as string)
-          )
-        ).slice(0, 10);
+        for (const b of boosts) {
+          if (
+            b.chainId === 'solana' &&
+            b.tokenAddress &&
+            isValidSolanaBase58(b.tokenAddress) &&
+            !EXCLUDED_BASE_MINTS.has(b.tokenAddress)
+          ) {
+            collectedMints.push(b.tokenAddress);
+          }
+        }
+      }
+      if (profilesRes.ok) {
+        const profiles = (await profilesRes.json()) as Array<{ chainId?: string; tokenAddress?: string }>;
+        assertReadOnlyPayload(profiles, 'DexScreener Profiles');
+        for (const p of profiles) {
+          if (
+            p.chainId === 'solana' &&
+            p.tokenAddress &&
+            isValidSolanaBase58(p.tokenAddress) &&
+            !EXCLUDED_BASE_MINTS.has(p.tokenAddress)
+          ) {
+            collectedMints.push(p.tokenAddress);
+          }
+        }
+      }
 
-        if (solMints.length > 0) {
-          const pairRes = await fetch(
-            `https://api.dexscreener.com/latest/dex/tokens/${solMints.join(',')}`,
-            { signal: AbortSignal.timeout(7000) }
-          );
-          if (pairRes.ok) {
-            const pairJson = (await pairRes.json()) as {
-              pairs?: Array<Record<string, unknown>>;
-            };
-            assertReadOnlyPayload(pairJson, 'DexScreener Pairs');
-            for (const p of pairJson.pairs ?? []) {
-              upsertCandidate(mapDexScreenerPair(p, 'DexScreener Live API', nowIso));
-            }
+      const solMints = Array.from(new Set(collectedMints)).slice(0, 24);
+      if (solMints.length > 0) {
+        const pairRes = await fetch(
+          `https://api.dexscreener.com/latest/dex/tokens/${solMints.join(',')}`,
+          { signal: AbortSignal.timeout(7000) }
+        );
+        if (pairRes.ok) {
+          const pairJson = (await pairRes.json()) as {
+            pairs?: Array<Record<string, unknown>>;
+          };
+          assertReadOnlyPayload(pairJson, 'DexScreener Pairs');
+          for (const p of pairJson.pairs ?? []) {
+            upsertCandidate(mapDexScreenerPair(p, 'DexScreener Live API', nowIso));
           }
         }
       }
@@ -262,15 +292,17 @@ export async function fetchLiveSolanaDexPairs(query = 'solana'): Promise<DexPair
   };
 
   await Promise.all([
-    fetchBoostPairs(),
+    fetchLatestBoostsAndProfiles(),
     fetchSearchPairs(query),
-    fetchSearchPairs('pumpswap solana'),
+    fetchSearchPairs('pumpswap'),
   ]);
 
   return Array.from(byMint.values())
     .sort((a, b) => {
-      const scoreA = a.volume5mUsd * 4 + a.volume1hUsd + Math.min(a.liquidityUsd, 300000);
-      const scoreB = b.volume5mUsd * 4 + b.volume1hUsd + Math.min(b.liquidityUsd, 300000);
+      const activeA = a.volume5mUsd > 0 ? 1 : 0.05;
+      const activeB = b.volume5mUsd > 0 ? 1 : 0.05;
+      const scoreA = a.volume5mUsd * 6 + a.volume1hUsd + Math.min(a.liquidityUsd, 150000) * activeA;
+      const scoreB = b.volume5mUsd * 6 + b.volume1hUsd + Math.min(b.liquidityUsd, 150000) * activeB;
       return scoreB - scoreA;
     })
     .slice(0, 14);

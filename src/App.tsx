@@ -118,6 +118,20 @@ function TerminalShell() {
         if (res.ok) return fetchState();
       })
       .catch(() => {});
+
+    const pollTimer = setInterval(async () => {
+      try {
+        const res = await apiFetch('/api/state');
+        if (!res.ok) return;
+        const data = (await res.json()) as TerminalSnapshot;
+        setSnapshot(data);
+        setSelectedMint((curr) => curr || data.tokens[0]?.mintAddress || '');
+      } catch {
+        // Silent retry on transient polling errors
+      }
+    }, 5000);
+
+    return () => clearInterval(pollTimer);
   }, [authState.authenticated, fetchState]);
 
   const handleLogout = async () => {
@@ -166,6 +180,7 @@ function TerminalShell() {
         result?: {
           scannedCount: number;
           blockedCount: number;
+          simulatedTradesCount?: number;
           halted?: boolean;
           haltReason?: string | null;
         };
@@ -184,7 +199,7 @@ function TerminalShell() {
         );
       } else {
         showToast(
-          `Đã quét ${data.result?.scannedCount ?? 0} cặp token Solana (${data.result?.blockedCount ?? 0} token bị LP Auditor lọc).`
+          `Đã quét ${data.result?.scannedCount ?? 0} cặp Solana · Lọc ${data.result?.blockedCount ?? 0} · Khớp mô phỏng ${data.result?.simulatedTradesCount ?? 0} lệnh.`
         );
       }
     } catch (err) {

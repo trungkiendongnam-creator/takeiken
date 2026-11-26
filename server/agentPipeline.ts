@@ -87,6 +87,75 @@ export async function runLiveSolanaScanPipeline(): Promise<{
   let newBlocked = 0;
   let simCount = 0;
 
+  // Step A: Manage existing OPEN paper trades against real-time DEX prices (Hard Stop / Profit Taker / Time Stop)
+  const openPaperTrades = db
+    .prepare(`SELECT id, mint_address, symbol, entry_price_sim_usd, opened_at FROM PaperTrades WHERE status = 'OPEN'`)
+    .all() as Array<{
+      id: number;
+      mint_address: string;
+      symbol: string;
+      entry_price_sim_usd: number;
+      opened_at: string;
+    }>;
+
+  for (const tr of openPaperTrades) {
+    const matchedPair = pairs.find((p) => p.mintAddress === tr.mint_address);
+    const livePrice =
+      matchedPair && matchedPair.priceUsd > 0
+        ? matchedPair.priceUsd
+        : (await fetchLiveTokenPriceUsd(tr.mint_address))?.priceUsd ?? 0;
+
+    if (livePrice > 0) {
+      db.prepare('UPDATE TokenMetadata SET price_usd = ?, source_timestamp = ? WHERE mint_address = ?').run(
+        livePrice,
+        new Date().toISOString(),
+        tr.mint_address
+      );
+      const entry = Math.max(1e-12, Number(tr.entry_price_sim_usd));
+      const mult = livePrice / entry;
+      const ageMinutes = (Date.now() - new Date(tr.opened_at).getTime()) / 60000;
+
+      if (mult <= 0.88) {
+        const res = await executePaperSimulation({
+          mintAddress: tr.mint_address,
+          action: 'CLOSE_SIM',
+          liveMarketPriceUsd: livePrice,
+          closeReasonPrefix: `Cắt lỗ cứng (-12% kích hoạt tại ${((mult - 1) * 100).toFixed(1)}%)`,
+        });
+        if (res.ok) simCount += 1;
+      } else if (mult >= 1.15) {
+        const res = await executePaperSimulation({
+          mintAddress: tr.mint_address,
+          action: 'CLOSE_SIM',
+          liveMarketPriceUsd: livePrice,
+          closeReasonPrefix: `Chốt lời tự động (${mult.toFixed(2)}x)`,
+        });
+        if (res.ok) simCount += 1;
+      } else if (ageMinutes >= 20) {
+        const res = await executePaperSimulation({
+          mintAddress: tr.mint_address,
+          action: 'CLOSE_SIM',
+          liveMarketPriceUsd: livePrice,
+          closeReasonPrefix: 'Hết thời gian giữ (20 phút)',
+        });
+        if (res.ok) simCount += 1;
+      }
+    }
+  }
+
+  const midGuard = evaluateAndEnforceDailyDrawdownGuard();
+  if (midGuard.isHalted) {
+    return {
+      scannedCount: 0,
+      blockedCount: 0,
+      simulatedTradesCount: simCount,
+      solPriceUsd: solPrice.priceUsd,
+      rpcLatencyMs: rpcHealth.latencyMs,
+      halted: true,
+      haltReason: midGuard.haltReason,
+    };
+  }
+
   // 01. LAUNCH RADAR
   const lead = pairs[0];
   updateAgentState(
@@ -107,8 +176,10 @@ export async function runLiveSolanaScanPipeline(): Promise<{
     isPositive: true,
   });
 
-  // Evaluate up to 5 top pairs through Agents 02..10
-  const candidates = pairs.slice(0, 5);
+  // Evaluate up to 6 top active pairs through Agents 02..10
+  const candidates = pairs.slice(0, 6);
+  const autoTradeEnabled = getSetting('is_running', 'true') === 'true';
+
   for (const pair of candidates) {
     checkedTotal += 1;
 
@@ -249,20 +320,59 @@ export async function runLiveSolanaScanPipeline(): Promise<{
       sentimentVel,
       auditReason
     );
+
+    // Step B: Auto-open Paper Simulation trade for qualified PASSED tokens when bot is running
+    if (autoTradeEnabled && passedAudit) {
+      const guardNow = evaluateAndEnforceDailyDrawdownGuard();
+      const openCount = (
+        db.prepare(`SELECT COUNT(*) AS c FROM PaperTrades WHERE status = 'OPEN'`).get() as { c: number }
+      ).c;
+      const alreadyOpen = db
+        .prepare(`SELECT id FROM PaperTrades WHERE mint_address = ? AND status = 'OPEN'`)
+        .get(pair.mintAddress);
+      const recentlyClosed = db
+        .prepare(
+          `SELECT closed_at FROM PaperTrades WHERE mint_address = ? AND status = 'CLOSED' ORDER BY id DESC LIMIT 1`
+        )
+        .get(pair.mintAddress) as { closed_at: string } | undefined;
+      const cooldownOk =
+        !recentlyClosed || Date.now() - new Date(recentlyClosed.closed_at).getTime() > 5 * 60_000;
+      const momentumEligible =
+        (pair.volume5mUsd >= 300 || pair.volume1hUsd >= 3000) &&
+        pair.buyRatioPct >= 45 &&
+        pair.priceChange1h < 300;
+
+      if (!guardNow.isHalted && openCount < 3 && !alreadyOpen && cooldownOk && momentumEligible) {
+        const execRes = await executePaperSimulation({
+          mintAddress: pair.mintAddress,
+          action: 'OPEN_SIM',
+          equityPct: 4,
+        });
+        if (execRes.ok) {
+          simCount += 1;
+        }
+      }
+    }
   }
 
-  // 06. RISK SIZER update
+  // 06-10 agent status sync
   const paperBal = Number(getSetting('paper_balance_usd', '50.00'));
-  updateAgentState('risk_sizer', 'READY', `3% of $${paperBal.toFixed(2)} (sim)`, 'Paper virtual cap active');
-
-  // 07-10 update
-  updateAgentState('sniper', 'LIVE', `ready · ${candidates.length} scanned`, 'Paper-only mode enforced');
+  const currentOpenCount = (
+    db.prepare(`SELECT COUNT(*) AS c FROM PaperTrades WHERE status = 'OPEN'`).get() as { c: number }
+  ).c;
+  updateAgentState('risk_sizer', 'READY', `4% of $${paperBal.toFixed(2)} (sim)`, `${currentOpenCount}/3 active paper slots`);
+  updateAgentState(
+    'sniper',
+    'LIVE',
+    currentOpenCount > 0 ? `${currentOpenCount} open · ${simCount} actions` : `ready · ${candidates.length} scanned`,
+    'Paper-only executor'
+  );
   updateAgentState('journal', 'ACTIVE', `logged ${candidates.length} live tokens`, 'SQLite synced');
 
   setSetting('tokens_checked', String(checkedTotal));
   setSetting('blocked_count', String(blockedTotal));
   setSetting('total_launches_tracked', String(Number(getSetting('total_launches_tracked', '0')) + candidates.length));
-  setSetting('latest_ticker', `LAUNCH RADAR · SCANNED ${candidates.length} LIVE SOLANA PAIRS`);
+  setSetting('latest_ticker', `LAUNCH RADAR · SCANNED ${candidates.length} LIVE SOLANA PAIRS · ${currentOpenCount} OPEN SIM`);
   evaluateVolatilityAlerts();
   const postScanGuard = evaluateAndEnforceDailyDrawdownGuard();
 

@@ -537,6 +537,9 @@ async function startServer() {
       resultBadge: nextState ? 'RUNNING' : 'PAUSED',
       isPositive: nextState,
     });
+    if (nextState) {
+      void runLiveSolanaScanPipeline().catch(() => {});
+    }
     res.json({ ok: true, snapshot: buildSnapshot() });
   });
 
@@ -1501,6 +1504,31 @@ export function injectQuery(url) {
   const PORT = Number(process.env.PORT || 3000);
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Grok Bot Terminal server running on http://0.0.0.0:${PORT}`);
+
+    // Continuous autonomous Paper Trading & DEX scan loop while running and within Daily Drawdown limits
+    let autoCycleRunning = false;
+    const runAutoAgentCycle = async () => {
+      if (autoCycleRunning) return;
+      if (getSetting('is_running', 'true') !== 'true') return;
+      const guard = evaluateAndEnforceDailyDrawdownGuard();
+      if (guard.isHalted) return;
+
+      autoCycleRunning = true;
+      try {
+        await runLiveSolanaScanPipeline();
+      } catch {
+        // Non-fatal network/RPC cycle error; next tick will retry cleanly
+      } finally {
+        autoCycleRunning = false;
+      }
+    };
+
+    setTimeout(() => {
+      void runAutoAgentCycle();
+    }, 2500);
+    setInterval(() => {
+      void runAutoAgentCycle();
+    }, 18_000);
   });
 }
 
