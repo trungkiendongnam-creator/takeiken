@@ -1,0 +1,1574 @@
+# MASTER PROMPT TỔNG THỂ
+# XÂY DỰNG PHẦN MỀM GROK BOT TERMINAL DESKTOP CHUYÊN NGHIỆP TRÊN WINDOWS 11
+
+## PHANTOM WALLET – SOLANA MAINNET – DEX DATA – 10 AI AGENTS – PAPER TRADING – BACKTEST DỮ LIỆU THẬT – VIRTUAL MACHINE TESTING – ERROR FIXING
+
+---
+
+# PHẦN 1. VAI TRÒ VÀ NHIỆM VỤ
+
+Bạn là một đội ngũ chuyên gia phát triển phần mềm chuyên nghiệp, bao gồm:
+
+1. Chuyên gia phân tích nghiệp vụ.
+2. Kiến trúc sư phần mềm.
+3. Chuyên gia thiết kế UI/UX.
+4. Chuyên gia phát triển ứng dụng Windows Desktop.
+5. Chuyên gia C# và .NET.
+6. Chuyên gia React và TypeScript.
+7. Chuyên gia Backend.
+8. Chuyên gia thiết kế cơ sở dữ liệu.
+9. Chuyên gia Blockchain Solana.
+10. Chuyên gia Phantom Wallet.
+11. Chuyên gia tích hợp DEX.
+12. Chuyên gia xử lý dữ liệu thị trường.
+13. Chuyên gia phát triển AI Agent.
+14. Chuyên gia xây dựng hệ thống Paper Trading.
+15. Chuyên gia Backtest.
+16. Chuyên gia kiểm thử QA/QC.
+17. Chuyên gia bảo mật.
+18. Chuyên gia tối ưu hiệu năng.
+19. Chuyên gia kiểm thử máy ảo Windows.
+20. Chuyên gia đóng gói và triển khai phần mềm.
+
+Nhiệm vụ là phát triển một ứng dụng Desktop hoàn chỉnh mang tên:
+
+**GROK BOT TERMINAL DESKTOP**
+
+Phần mềm phải được phát triển dựa trên hai tài liệu tham chiếu:
+
+- Ảnh giao diện Grok Bot Terminal do tôi cung cấp.
+- Video gork bot.mp4 do tôi cung cấp.
+
+QUY ĐỊNH ƯU TIÊN:
+
+- Ảnh mới nhất là chuẩn thiết kế giao diện.
+- Video là chuẩn tham chiếu chức năng, quy trình và trạng thái hoạt động.
+- Các yêu cầu nghiệp vụ trong tài liệu này là tiêu chuẩn phát triển.
+- Những chức năng chưa xác định được từ ảnh hoặc video phải được đánh dấu rõ ràng, không tự ý bịa ra.
+
+Không được chỉ xây dựng bản Demo.
+
+Không được chỉ thiết kế giao diện.
+
+Phải xây dựng ứng dụng có mã nguồn, cơ sở dữ liệu, xử lý nghiệp vụ, kết nối dữ liệu, kiểm thử, sửa lỗi và bộ cài đặt thực tế.
+
+---
+
+# PHẦN 2. MỤC TIÊU SẢN PHẨM
+
+Xây dựng phần mềm GROK BOT TERMINAL DESKTOP với các mục tiêu:
+
+1. Chạy trực tiếp trên Windows 11.
+2. Giao diện giống ảnh mẫu.
+3. Có đầy đủ 10 Agent.
+4. Có khu vực YOU dành cho người dùng.
+5. Có Dashboard tổng quan.
+6. Có Token Flow.
+7. Có Live Flow.
+8. Có sơ đồ xử lý trung tâm.
+9. Có Trade Detail.
+10. Có Session Terminal.
+11. Có Equity Chart.
+12. Có System Log.
+13. Kết nối Phantom trên máy tính.
+14. Hỗ trợ kết nối Phantom trên điện thoại.
+15. Ưu tiên Solana Mainnet.
+16. Đọc số dư SOL và danh sách token.
+17. Tích hợp dữ liệu DEX.
+18. Xây dựng hệ thống Scanner.
+19. Xây dựng hệ thống phân tích rủi ro.
+20. Xây dựng hệ thống quản lý quy mô mô phỏng.
+21. Xây dựng Paper Trading.
+22. Xây dựng Backtest Engine.
+23. Sử dụng dữ liệu lịch sử có nguồn gốc thực tế.
+24. Chạy kiểm thử trên máy ảo Windows 11.
+25. Phát hiện lỗi, sửa lỗi và kiểm thử hồi quy.
+26. Đóng gói thành phần mềm cài đặt được.
+27. Bàn giao mã nguồn và tài liệu đầy đủ.
+
+## NGUYÊN TẮC AN TOÀN BẮT BUỘC
+
+Phần mềm chỉ có hai phương thức:
+
+**READ-ONLY:** Đọc dữ liệu công khai từ Phantom và Blockchain.
+
+**PAPER TRADING:** Mô phỏng giao dịch bằng số dư ảo.
+
+Tuyệt đối không phát triển chức năng:
+
+- Ký thông điệp.
+- Ký giao dịch.
+- Gửi giao dịch lên Blockchain.
+- Chuyển SOL.
+- Chuyển token.
+- Swap bằng tiền thật.
+- Phê duyệt quyền chi tiêu token.
+- Tự động sử dụng tài sản trong Phantom.
+
+Không lưu Seed Phrase, Private Key hoặc mật khẩu ví.
+
+Phải thiết kế kiến trúc để không có đường thực thi giao dịch thật.
+
+---
+
+# PHẦN 3. PHÂN TÍCH ẢNH VÀ VIDEO MẪU
+
+## 3.1. Ảnh giao diện
+
+Ảnh mới nhất do tôi cung cấp là chuẩn giao diện chính.
+
+Chỉ phân tích khu vực ứng dụng Grok Bot Terminal trong ảnh.
+
+Không sao chép:
+
+- Thanh trạng thái điện thoại.
+- Thanh tìm kiếm mạng xã hội.
+- Nút thích.
+- Nút bình luận.
+- Nút chia sẻ.
+- Phần mô tả video.
+- Các thành phần thuộc ứng dụng mạng xã hội.
+
+Chỉ tái hiện cửa sổ phần mềm.
+
+## 3.2. Video tham chiếu
+
+Phân tích toàn bộ video gork bot.mp4.
+
+Chú ý:
+
+- Cấu trúc Dashboard.
+- Các Agent.
+- Trạng thái hoạt động.
+- Quy trình xử lý.
+- Sự thay đổi số liệu.
+- Các bảng dữ liệu.
+- Cách cập nhật kết quả.
+- Cách ghi nhận giao dịch.
+- Cách hiển thị nhật ký.
+
+Video có sự thay đổi số liệu theo thời gian. Phải xây dựng giao diện có khả năng cập nhật dữ liệu theo sự kiện thực tế, không sử dụng các con số cố định trong ảnh.
+
+## 3.3. Báo cáo phân tích
+
+Lập bảng:
+
+- STT.
+- Tên màn hình.
+- Module.
+- Chức năng.
+- Dữ liệu đầu vào.
+- Kết quả đầu ra.
+- Quy tắc nghiệp vụ.
+- Mức độ xác định.
+- Ghi chú.
+
+Phân loại:
+
+1. Chức năng quan sát trực tiếp.
+2. Chức năng suy luận từ giao diện.
+3. Chức năng cần xác nhận.
+4. Chức năng đề xuất bổ sung.
+
+---
+
+# PHẦN 4. THIẾT KẾ GIAO DIỆN THEO ẢNH MẪU
+
+Đây là yêu cầu ưu tiên cao nhất về UI/UX.
+
+Phải phát triển giao diện với phong cách và bố cục tương tự ảnh mẫu.
+
+Không tự ý đổi sang Dashboard quản trị thông thường.
+
+Không thay đổi sang giao diện sáng.
+
+Không sử dụng ảnh chụp màn hình làm giao diện nền.
+
+Phải tạo các thành phần giao diện thật, có tương tác và dữ liệu thực tế.
+
+## 4.1. Phong cách
+
+Tên phong cách:
+
+DARK NEON TRADING TERMINAL.
+
+Đặc điểm:
+
+- Nền xanh đen sâu.
+- Các Card màu xanh đen.
+- Viền xanh ngọc.
+- Chữ trắng.
+- Chữ phụ xanh xám.
+- Tiêu đề có điểm nhấn cam.
+- Trạng thái tốt màu xanh lá.
+- Cảnh báo màu đỏ hoặc hồng.
+- Bộ tính toán màu tím.
+- Chỉ số quan trọng màu vàng.
+- Dữ liệu màu xanh dương.
+- Góc bo Card vừa phải.
+- Viền mảnh.
+- Hiệu ứng phát sáng nhẹ.
+- Font rõ ràng.
+- Terminal sử dụng font đơn cách.
+- Biểu đồ và đường nối có hiệu ứng chuyển động nhẹ.
+
+Bảng màu tham khảo:
+
+| Thành phần | Màu |
+|---|---|
+| Nền chính | #031713 |
+| Nền Card | #06231F |
+| Nền phụ | #092D27 |
+| Viền | #145B4B |
+| Xanh ngọc | #43D7B1 |
+| Cam | #FF9B45 |
+| Xanh lá | #39DEA2 |
+| Đỏ | #EF6682 |
+| Tím | #A986F5 |
+| Vàng | #EAC64D |
+| Xanh dương | #49A9ED |
+| Chữ chính | #E6F2ED |
+| Chữ phụ | #8FA9A0 |
+
+## 4.2. Bố cục chính
+
+Bố trí đúng hai cột:
+
+CỘT TRÁI: AGENTS SIDEBAR.
+
+CỘT PHẢI: MAIN WORKSPACE.
+
+HEADER chạy ngang phía trên.
+
+Tỷ lệ ban đầu:
+
+- Sidebar khoảng 30% chiều rộng.
+- Main Workspace khoảng 70% chiều rộng.
+
+Không cố định cứng kích thước theo ảnh điện thoại.
+
+Phải thích ứng với màn hình Windows 11.
+
+## 4.3. Header
+
+Hiển thị:
+
+- Ba nút trạng thái đỏ, vàng, xanh.
+- Logo Grok Bot.
+- Tên GROK BOT TERMINAL.
+- Phiên bản.
+- Thời gian hoạt động.
+- Trạng thái RUNNING.
+- Trạng thái PAPER TRADING.
+
+Khu vực thống kê:
+
+- Số dư Paper Trading.
+- Tổng số kịch bản.
+- Kết quả dương.
+- Kết quả âm.
+
+Có khu vực Phantom riêng:
+
+- Kết nối ví.
+- Địa chỉ ví rút gọn.
+- Mạng Solana.
+- Số dư SOL thực tế chỉ đọc.
+
+Không gộp số dư Phantom vào số dư Paper Trading.
+
+## 4.4. Sidebar AGENTS
+
+Bên trái có tiêu đề:
+
+AGENTS · 10 AGENTS.
+
+Các Agent xếp theo chiều dọc.
+
+Mỗi Agent là một Card gồm:
+
+- Icon.
+- Tên Agent.
+- Mô tả ngắn.
+- Trạng thái.
+- Chỉ số hoạt động.
+- Số liệu gần nhất.
+- Thời gian cập nhật.
+
+Có thể cuộn độc lập.
+
+Khi chọn Agent, Card phải được làm nổi bật và Main Workspace cập nhật thông tin của Agent đó.
+
+## 4.5. Main Workspace
+
+Bố trí các thành phần theo thứ tự:
+
+1. LIVE FLOW.
+2. TOKEN FLOW STRIP.
+3. CENTRAL FLOW DIAGRAM.
+4. STATISTICS CARDS.
+5. TRADE DETAIL.
+6. SESSION TERMINAL.
+7. EQUITY CHART.
+8. SYSTEM LOG.
+
+Phải giữ đúng phân cấp và thứ tự này.
+
+---
+
+# PHẦN 5. XÂY DỰNG 10 AGENT
+
+Tạo đủ 10 Agent theo ảnh mẫu.
+
+Không tự ý đổi thứ tự hoặc thay tên nhận diện.
+
+## AGENT 01 – LAUNCH RADAR
+
+Tên tiếng Việt: Radar phát hiện token mới.
+
+Màu: Cam.
+
+Chức năng:
+
+- Theo dõi token mới trên Solana.
+- Theo dõi Pool mới.
+- Thu thập dữ liệu từ nguồn được cấu hình.
+- Nhận diện Mint Address.
+- Lọc theo tiêu chí.
+- Ghi thời gian phát hiện.
+- Chuyển dữ liệu cho các Agent tiếp theo.
+
+Trạng thái: SCAN.
+
+## AGENT 02 – WHALE WATCH
+
+Tên tiếng Việt: Theo dõi ví lớn.
+
+Màu: Xanh Cyan.
+
+Chức năng:
+
+- Theo dõi địa chỉ ví công khai.
+- Phân tích giao dịch.
+- Theo dõi biến động số dư.
+- Thống kê hoạt động.
+- Cảnh báo biến động đáng chú ý.
+
+Trạng thái: TRACK.
+
+Không tự suy luận danh tính chủ ví.
+
+## AGENT 03 – SENTIMENT
+
+Tên tiếng Việt: Phân tích tâm lý thị trường.
+
+Màu: Hồng.
+
+Chức năng:
+
+- Tiếp nhận dữ liệu từ nguồn được phép.
+- Phân tích lượng đề cập token.
+- Theo dõi mức độ quan tâm.
+- Phân tích biến động thảo luận.
+- Lưu nguồn dữ liệu và thời gian.
+
+Trạng thái: READ.
+
+Không tự tạo dữ liệu mạng xã hội.
+
+## AGENT 04 – LP AUDITOR
+
+Tên tiếng Việt: Kiểm toán thanh khoản.
+
+Màu: Đỏ.
+
+Chức năng:
+
+- Kiểm tra Pool.
+- Kiểm tra thanh khoản.
+- Kiểm tra Mint Authority.
+- Kiểm tra Freeze Authority.
+- Phân tích biến động thanh khoản.
+- Ghi nhận dấu hiệu rủi ro.
+
+Trạng thái: AUDIT.
+
+## AGENT 05 – HOLDER MAP
+
+Tên tiếng Việt: Bản đồ phân bổ người nắm giữ.
+
+Màu: Đỏ nhạt.
+
+Chức năng:
+
+- Phân tích phân bổ token.
+- Thống kê địa chỉ nắm giữ.
+- Phân tích mức độ tập trung.
+- Theo dõi biến động.
+- Hiển thị biểu đồ.
+
+Trạng thái: MAP.
+
+Không kết luận các ví có cùng chủ sở hữu khi không có bằng chứng.
+
+## AGENT 06 – RISK SIZER
+
+Tên tiếng Việt: Bộ tính quy mô và rủi ro.
+
+Màu: Tím.
+
+Chức năng:
+
+- Nhận kết quả từ LP AUDITOR.
+- Tính quy mô mô phỏng.
+- Tính tỷ lệ vốn ảo.
+- Tính mức trượt giá giả định.
+- Tính phí giả định.
+- Kiểm tra giới hạn vốn.
+
+Trạng thái: IDLE hoặc READY.
+
+Chỉ sử dụng số dư Paper Trading.
+
+## AGENT 07 – SNIPER
+
+Tên tiếng Việt: Bộ mô phỏng thực thi.
+
+Màu: Xanh lá.
+
+Chức năng:
+
+- Nhận kịch bản từ các Agent.
+- Kiểm tra điều kiện.
+- Mô phỏng giá vào.
+- Mô phỏng giá thoát.
+- Cập nhật trạng thái.
+- Ghi kết quả.
+- Lưu lịch sử.
+
+Trạng thái: ACTIVE khi chạy mô phỏng.
+
+Không có khả năng gửi giao dịch thật.
+
+## AGENT 08 – PROFIT TAKER
+
+Tên tiếng Việt: Bộ mô phỏng chốt lời.
+
+Màu: Vàng.
+
+Chức năng:
+
+- Theo dõi Paper Trading đang mở.
+- Mô phỏng chốt lời.
+- Mô phỏng chốt lời từng phần.
+- Theo dõi vị thế còn lại.
+- Cập nhật kết quả.
+
+Trạng thái: LADDER.
+
+Không gửi lệnh bán lên Blockchain.
+
+## AGENT 09 – STOP GUARD
+
+Tên tiếng Việt: Bộ giới hạn rủi ro.
+
+Màu: Cam đỏ.
+
+Chức năng:
+
+- Theo dõi lỗ mô phỏng.
+- Mô phỏng Stop Loss.
+- Mô phỏng Trailing Stop.
+- Theo dõi mức sụt giảm.
+- Kiểm tra giới hạn rủi ro.
+- Ghi nhận lý do kết thúc.
+
+Trạng thái: ARMED.
+
+Chỉ hoạt động trên số dư ảo.
+
+## AGENT 10 – JOURNAL
+
+Tên tiếng Việt: Nhật ký và báo cáo.
+
+Màu: Xanh dương.
+
+Chức năng:
+
+- Ghi lại sự kiện.
+- Ghi lại kết quả.
+- Lưu nhật ký Agent.
+- Lưu lỗi.
+- Tổng hợp báo cáo.
+- Truy xuất lịch sử.
+
+Trạng thái: WRITE.
+
+## KHU VỰC YOU
+
+Nằm cuối Sidebar.
+
+Không tính YOU là Agent thứ 11.
+
+Chức năng:
+
+- Trợ lý thông tin.
+- Thống kê sự kiện chưa đọc.
+- Cảnh báo.
+- Báo cáo.
+- Thông báo hệ thống.
+
+---
+
+# PHẦN 6. MAIN WORKSPACE
+
+## 6.1. LIVE FLOW
+
+Hiển thị:
+
+LIVE FLOW · RADAR → AUDIT → SIZE → SNIPER → TAKE.
+
+Bên phải có:
+
+- Số token đã kiểm tra.
+- Số sự kiện.
+- Thời gian cập nhật.
+- Trạng thái.
+
+## 6.2. TOKEN FLOW
+
+Hiển thị Card token nằm ngang.
+
+Mỗi Card gồm:
+
+- Token Symbol.
+- Mint Address rút gọn.
+- Giá.
+- Biến động.
+- Trạng thái.
+- Nguồn dữ liệu.
+
+Cho phép cuộn ngang.
+
+Khi chọn token, tất cả vùng chi tiết phải cập nhật theo đúng Mint Address.
+
+## 6.3. CENTRAL FLOW DIAGRAM
+
+Tái hiện ba nút xử lý:
+
+BÊN TRÁI: LP AUDIT.
+
+- Hình tròn đỏ.
+- Biểu tượng cảnh báo.
+- Trạng thái.
+- Kết quả đánh giá.
+
+Ở GIỮA: GROK CORE.
+
+- Hình tròn lớn.
+- Logo Grok Bot.
+- Trạng thái phân tích.
+- Số sự kiện.
+- Trạng thái đồng bộ Agent.
+
+BÊN PHẢI: PAPER SNIPER.
+
+- Hình tròn xanh lá.
+- Biểu tượng tâm ngắm.
+- Trạng thái mô phỏng.
+- Kết quả gần nhất.
+
+Có đường nối chấm sáng và hiệu ứng chuyển động nhẹ.
+
+## 6.4. FOUR STATISTICS CARDS
+
+Card 1: BLOCKED.
+
+- Số token bị lọc.
+- Tổng token kiểm tra.
+- Tỷ lệ bị loại.
+
+Card 2: BEST X.
+
+- Kết quả Paper Trading tốt nhất.
+- Token.
+- Biến động mô phỏng.
+
+Card 3: WIN RATE.
+
+- Số kịch bản có kết quả dương.
+- Số kịch bản có kết quả âm.
+- Tỷ lệ phần trăm.
+
+Card 4: LAST SELL.
+
+- Kịch bản kết thúc gần nhất.
+- Lãi/lỗ mô phỏng.
+- Thời gian.
+- Lý do kết thúc.
+
+Tất cả phải tính từ Database, không sử dụng số liệu cố định trong ảnh.
+
+## 6.5. TRADE – ENTRY VS EXIT
+
+Bố trí bên trái.
+
+Hiển thị:
+
+- Token.
+- Giá tham khảo.
+- Giá vào giả định.
+- Giá thoát giả định.
+- Thanh khoản.
+- Số lượng mô phỏng.
+- Tỷ lệ vốn ảo.
+- Phí giả định.
+- Trượt giá.
+- Lý do phân tích.
+
+Trạng thái:
+
+- OPEN.
+- CLOSED.
+- FILTERED.
+- ERROR.
+
+Chữ BUY/SELL nếu sử dụng phải được ghi rõ là mô phỏng.
+
+## 6.6. SESSION TERMINAL
+
+Bố trí bên phải.
+
+Tiêu đề SESSION LOG.
+
+Hiển thị:
+
+- Thời gian.
+- Agent.
+- Token.
+- Sự kiện.
+- Kết quả.
+- Lý do.
+
+Sử dụng font đơn cách, cuộn độc lập.
+
+Lấy dữ liệu trực tiếp từ Logger.
+
+## 6.7. EQUITY
+
+Bố trí phía dưới TRADE và SESSION TERMINAL.
+
+Hiển thị:
+
+- Biểu đồ biến động số dư Paper Trading.
+- START.
+- NOW.
+- Tổng lãi/lỗ mô phỏng.
+- Tỷ lệ thay đổi.
+- Thời gian.
+
+## 6.8. SYSTEM LOG
+
+Nằm cuối Main Workspace.
+
+Hiển thị:
+
+- Timestamp.
+- Agent.
+- Token.
+- Loại sự kiện.
+- Nội dung.
+- Kết quả.
+
+Có tìm kiếm, lọc và xuất dữ liệu.
+
+Các khu vực phải cập nhật đồng bộ.
+
+---
+
+# PHẦN 7. YÊU CẦU TƯƠNG TÁC
+
+Các Agent phải thực sự liên kết với nhau.
+
+Ví dụ khi LAUNCH RADAR nhận diện token:
+
+1. Token xuất hiện trong Token Flow.
+2. WHALE WATCH nhận dữ liệu liên quan.
+3. SENTIMENT phân tích nếu có dữ liệu.
+4. LP AUDITOR kiểm tra.
+5. HOLDER MAP phân tích.
+6. RISK SIZER tính toán mô phỏng.
+7. SNIPER tiếp nhận kịch bản Paper Trading nếu đủ điều kiện.
+8. PROFIT TAKER và STOP GUARD theo dõi mô phỏng.
+9. JOURNAL ghi sự kiện.
+10. EQUITY cập nhật khi có kết quả.
+
+Khi người dùng nhấn vào Agent:
+
+- Hiển thị trạng thái.
+- Hiển thị dữ liệu chi tiết.
+- Hiển thị lịch sử.
+- Hiển thị nhật ký.
+- Hiển thị lỗi nếu có.
+
+Không xây dựng các Card chỉ để trang trí.
+
+---
+
+# PHẦN 8. CÔNG NGHỆ WINDOWS 11
+
+Ưu tiên kiến trúc:
+
+## Desktop
+
+- C#.
+- .NET 10 LTS, kiểm tra bản vá mới nhất.
+- WPF.
+- XAML.
+- MVVM.
+- Entity Framework Core.
+- SQLite.
+
+## Phantom Companion
+
+- React.
+- TypeScript.
+- Phantom SDK hoặc chuẩn tích hợp chính thức còn được hỗ trợ.
+- HTTPS.
+
+## Backend
+
+- ASP.NET Core khi thực sự cần.
+- REST API.
+- Background Services.
+- SignalR hoặc WebSocket khi phù hợp.
+
+Ứng dụng Desktop phải chạy độc lập, không cần mở trình duyệt để sử dụng các chức năng nội bộ.
+
+Không viết toàn bộ dự án trong một file.
+
+Không tạo các module rời rạc.
+
+---
+
+# PHẦN 9. PHANTOM WALLET READ-ONLY
+
+Tích hợp Phantom trên máy tính và điện thoại.
+
+## 9.1. Máy tính
+
+- Kết nối Phantom Extension bằng trình duyệt tương thích.
+- Hiển thị địa chỉ ví.
+- Hiển thị mạng.
+- Đọc số dư SOL.
+- Đọc danh sách token.
+- Có nút ngắt kết nối.
+
+## 9.2. Điện thoại
+
+Xây dựng phương án kết nối qua QR Code và Phantom Mobile theo tài liệu chính thức đang được hỗ trợ.
+
+Quy trình:
+
+1. Desktop tạo mã ghép nối ngẫu nhiên.
+2. Hiển thị QR Code.
+3. Người dùng mở trang HTTPS đồng hành trong Phantom.
+4. Người dùng xác nhận kết nối chỉ đọc.
+5. Nhận địa chỉ ví công khai.
+6. Đồng bộ địa chỉ về Desktop.
+7. Hiển thị dữ liệu.
+
+QR Code phải có thời hạn và chỉ sử dụng một lần.
+
+Nếu kết nối yêu cầu ký thông điệp, hủy yêu cầu và chuyển sang phương thức nhập địa chỉ công khai.
+
+## 9.3. Dữ liệu được phép đọc
+
+- Public Address.
+- SOL Balance.
+- Token Accounts.
+- Token Amount.
+- Mint Address.
+- Decimals.
+- Metadata.
+- Lịch sử giao dịch công khai khi nguồn hỗ trợ.
+
+Không lưu Seed Phrase, Private Key hoặc mật khẩu Phantom.
+
+Không xây dựng hàm ký hoặc gửi giao dịch.
+
+Thiết kế Wallet Service chỉ có các phương thức đọc dữ liệu cần thiết.
+
+---
+
+# PHẦN 10. SOLANA BLOCKCHAIN
+
+Blockchain ưu tiên:
+
+SOLANA MAINNET.
+
+Xây dựng Solana RPC Reader.
+
+Có thể sử dụng các phương thức đọc:
+
+- getBalance.
+- getAccountInfo.
+- getMultipleAccounts.
+- getTokenAccountsByOwner.
+- getTokenAccountBalance.
+- getTokenSupply.
+- getSignaturesForAddress.
+- getTransaction.
+
+Dữ liệu:
+
+- Slot.
+- Block Time.
+- Transaction Signature.
+- Mint Address.
+- Token Account.
+- Token Supply.
+- Decimals.
+- Mint Authority.
+- Freeze Authority.
+- Public Address.
+
+Hỗ trợ SPL Token và Token-2022 khi dữ liệu được hỗ trợ.
+
+Có xử lý:
+
+- RPC lỗi.
+- Timeout.
+- Dữ liệu thiếu.
+- Dữ liệu cũ.
+- Trùng lặp.
+- Rate Limit.
+
+Không coi lỗi truy vấn là số dư bằng 0.
+
+Không sử dụng chức năng gửi giao dịch.
+
+---
+
+# PHẦN 11. DEX DATA CONNECTOR
+
+Tích hợp nguồn dữ liệu thị trường DEX cho Solana.
+
+Ưu tiên nghiên cứu Jupiter Aggregator cho dữ liệu báo giá.
+
+Có thể bổ sung các nguồn DEX khác khi xác nhận tính phù hợp.
+
+Dữ liệu:
+
+- Token.
+- Pair.
+- Pool.
+- Giá.
+- Thanh khoản.
+- Khối lượng.
+- Biến động.
+- OHLCV.
+- Báo giá tham khảo.
+- Nguồn dữ liệu.
+- Thời gian cập nhật.
+
+Chỉ sử dụng chế độ đọc dữ liệu.
+
+Không gọi API thực thi Swap.
+
+Không gọi API gửi giao dịch.
+
+Không ký giao dịch.
+
+Không xử lý transaction có khả năng thực thi.
+
+Nếu phản hồi chứa dữ liệu giao dịch ngoài phạm vi được phép, từ chối và ghi Log.
+
+Không khẳng định nguồn dữ liệu luôn có thanh khoản hoặc giá thực hiện tốt nhất.
+
+Phải hiển thị nguồn, thời gian và độ mới của dữ liệu.
+
+---
+
+# PHẦN 12. PAPER TRADING ENGINE
+
+Paper Trading là chế độ duy nhất của Executor.
+
+Các chức năng:
+
+- Số dư mô phỏng ban đầu.
+- Tạo kịch bản mô phỏng.
+- Giá vào giả định.
+- Giá thoát giả định.
+- Số lượng giả định.
+- Phí mô phỏng.
+- Trượt giá mô phỏng.
+- Cập nhật số dư.
+- Ghi lịch sử.
+- Tính kết quả.
+
+Phải phân biệt:
+
+1. Số dư Phantom thực tế.
+2. Số dư Paper Trading.
+3. Giá thị trường.
+4. Báo giá tham khảo.
+5. Giá thực hiện giả định.
+6. Lãi/lỗ mô phỏng.
+
+Không được sử dụng số dư thực tế của Phantom làm vốn mô phỏng.
+
+Không được gọi giao dịch mô phỏng là giao dịch đã khớp trên Blockchain.
+
+---
+
+# PHẦN 13. BACKTEST DỮ LIỆU LỊCH SỬ THẬT
+
+Xây dựng Backtest Engine riêng.
+
+Sử dụng:
+
+- Dữ liệu lịch sử Solana.
+- Dữ liệu giao dịch DEX.
+- OHLCV.
+- Giá.
+- Thanh khoản.
+- Khối lượng.
+- Token Metadata.
+- Dữ liệu Pool khi có.
+
+Mỗi tập dữ liệu phải có:
+
+- Nguồn.
+- Khoảng thời gian.
+- Dataset ID.
+- Dataset Hash.
+- Thời điểm thu thập.
+- Số bản ghi.
+- Trạng thái chất lượng.
+
+Kiểm tra:
+
+- Dữ liệu thiếu.
+- Dữ liệu trùng.
+- Sai thời gian.
+- Sai Mint Address.
+- Sai Decimals.
+- Sai giá.
+- Sai đơn vị.
+- Sai thứ tự thời gian.
+
+Phải ngăn:
+
+- Look-ahead Bias.
+- Survivorship Bias.
+- Data Leakage.
+- Sai lệch dữ liệu.
+- Sai lệch giá.
+- Sai lệch phí.
+
+Không sử dụng dữ liệu tương lai để quyết định trong quá khứ.
+
+Không dùng báo giá hiện tại thay cho dữ liệu lịch sử.
+
+Không tự tạo dữ liệu giả rồi tuyên bố là dữ liệu Blockchain thật.
+
+Nếu thiếu dữ liệu phải ghi rõ.
+
+Mỗi lần Backtest phải có cấu hình, phiên bản và kết quả có thể tái lập.
+
+---
+
+# PHẦN 14. MÁY ẢO WINDOWS 11
+
+Tạo môi trường kiểm thử bằng Hyper-V hoặc VMware nếu có khả năng.
+
+Cấu hình đề xuất:
+
+- Windows 11 Pro 64-bit.
+- RAM 8–16 GB.
+- CPU 4–8 nhân ảo.
+- SSD ảo tối thiểu 100 GB.
+
+Quy trình:
+
+1. Tạo VM.
+2. Cài Windows 11 sạch.
+3. Cài phụ thuộc.
+4. Cài bộ cài phần mềm.
+5. Kiểm tra khởi chạy.
+6. Kiểm tra giao diện.
+7. Kiểm tra Database.
+8. Kết nối nguồn dữ liệu.
+9. Chạy Backtest.
+10. Thu thập lỗi.
+11. Sửa mã nguồn.
+12. Build lại.
+13. Cài lại trên VM.
+14. Kiểm thử hồi quy.
+15. Nghiệm thu.
+
+Có Snapshot để phục hồi khi cần.
+
+Không đưa thông tin bí mật Phantom vào máy ảo.
+
+Nếu môi trường không hỗ trợ máy ảo, phải báo cáo rõ, không giả vờ đã kiểm thử.
+
+---
+
+# PHẦN 15. KIỂM THỬ VÀ SỬA LỖI
+
+Kiểm thử:
+
+- UI/UX.
+- Mười Agent.
+- Phantom.
+- Solana RPC.
+- DEX.
+- Database.
+- Paper Trading.
+- Backtest.
+- Logging.
+- Backup.
+- Performance.
+- Security.
+- Windows 11 Installation.
+
+Khi phát hiện lỗi:
+
+1. Ghi nhận.
+2. Tái hiện.
+3. Phân loại.
+4. Thu thập Log.
+5. Phân tích nguyên nhân gốc rễ.
+6. Sửa mã nguồn.
+7. Build.
+8. Chạy lại kịch bản lỗi.
+9. Kiểm thử hồi quy.
+10. Ghi nhận bằng chứng.
+11. Cập nhật phiên bản.
+
+Phân loại:
+
+- CRITICAL.
+- HIGH.
+- MEDIUM.
+- LOW.
+
+Không bàn giao khi còn lỗi Critical hoặc High chưa xử lý.
+
+Không chỉ ẩn thông báo lỗi để coi như đã sửa.
+
+---
+
+# PHẦN 16. KIỂM THỬ GIAO DIỆN
+
+Đây là yêu cầu riêng.
+
+Phải so sánh giao diện phần mềm thực tế với ảnh tham chiếu.
+
+Kiểm tra:
+
+- Header.
+- Sidebar 10 Agent.
+- YOU.
+- Token Flow.
+- Live Flow.
+- Central Flow.
+- Statistics Cards.
+- Trade.
+- Session Terminal.
+- Equity.
+- System Log.
+
+So sánh:
+
+- Bố cục.
+- Tỷ lệ.
+- Màu sắc.
+- Vị trí.
+- Khoảng cách.
+- Kích thước.
+- Độ tương phản.
+- Khả năng đọc.
+
+Dùng Screenshot Comparison hoặc Image Overlay.
+
+Lưu ảnh trước và sau khi điều chỉnh.
+
+Độ phân giải kiểm tra:
+
+- 1366 × 768.
+- 1600 × 900.
+- 1920 × 1080.
+- 2560 × 1440.
+
+Giao diện phải thích ứng với cửa sổ Windows.
+
+Không vỡ Card.
+
+Không mất chức năng.
+
+Không chồng lấn nội dung.
+
+---
+
+# PHẦN 17. BÁO CÁO VÀ BẰNG CHỨNG
+
+Không được chỉ nói rằng phần mềm đã hoạt động tốt hoặc Backtest thành công.
+
+Phải tạo ra bằng chứng thực tế.
+
+## 17.1. Báo cáo máy ảo
+
+- Cấu hình.
+- Phiên bản Windows.
+- Bộ cài.
+- Thời gian.
+- Kết quả khởi chạy.
+- Ảnh chụp màn hình.
+
+## 17.2. Báo cáo dữ liệu
+
+- Nguồn.
+- Dataset ID.
+- Dataset Hash.
+- Khoảng thời gian.
+- Số lượng bản ghi.
+- Chất lượng.
+- Lỗi.
+
+## 17.3. Báo cáo từng vòng Backtest
+
+- Mã vòng.
+- Phiên bản phần mềm.
+- Dataset.
+- Cấu hình.
+- Thời gian.
+- Kết quả.
+- Số lỗi.
+- Trạng thái.
+
+## 17.4. Báo cáo sửa lỗi
+
+- Mã lỗi.
+- Nguyên nhân.
+- Phương án xử lý.
+- Phiên bản sửa.
+- Kết quả kiểm tra lại.
+
+## 17.5. Bằng chứng hình ảnh
+
+Chụp từ ứng dụng thực tế:
+
+- Dashboard.
+- Sidebar.
+- Các Agent.
+- Phantom.
+- Solana.
+- DEX.
+- Paper Trading.
+- Backtest.
+- Equity.
+- Log.
+- Máy ảo.
+- Bộ cài.
+
+Không sử dụng hình thiết kế giả làm bằng chứng phần mềm đã chạy.
+
+## 17.6. Cấu trúc QA
+
+QA_TEST/
+- VM_Environment/
+- Installation_Evidence/
+- Historical_Datasets/
+- Dataset_Manifest/
+- Data_Validation/
+- Backtest_Rounds/
+- Application_Logs/
+- Error_Reports/
+- Fixed_Issues/
+- Regression_Reports/
+- Performance_Reports/
+- Security_Reports/
+- UI_Comparison/
+- Final_Acceptance_Report/
+
+---
+
+# PHẦN 18. DATABASE
+
+Sử dụng SQLite cho phiên bản Desktop.
+
+Các bảng chính:
+
+1. SystemSettings.
+2. Agents.
+3. WalletConnections.
+4. WalletDevices.
+5. WalletAddresses.
+6. SolanaBalances.
+7. TokenAccounts.
+8. TokenMetadata.
+9. ScannerResults.
+10. WhaleEvents.
+11. SentimentResults.
+12. LiquidityChecks.
+13. HolderSnapshots.
+14. RiskSizingRecords.
+15. PaperTrades.
+16. ProfitTakingRecords.
+17. StopGuardEvents.
+18. JournalEntries.
+19. DexSources.
+20. HistoricalMarketData.
+21. BacktestSessions.
+22. BacktestDatasets.
+23. BacktestResults.
+24. TestCases.
+25. TestResults.
+26. ErrorReports.
+27. FixedIssues.
+28. RegressionResults.
+29. SystemLogs.
+30. ErrorLogs.
+31. BackupHistory.
+
+Có khóa chính, khóa ngoại, chỉ mục, kiểm tra toàn vẹn, sao lưu và phục hồi.
+
+Không lưu dữ liệu bí mật Phantom.
+
+---
+
+# PHẦN 19. BẢO MẬT
+
+Yêu cầu:
+
+- Không lưu Private Key.
+- Không lưu Seed Phrase.
+- Không lưu mật khẩu Phantom.
+- Không ký thông điệp.
+- Không ký giao dịch.
+- Không gửi giao dịch.
+- Không chuyển tài sản.
+- Không tạo quyền chi tiêu.
+- Không ghi thông tin nhạy cảm vào Log.
+- Kiểm soát API.
+- Có timeout.
+- Có giới hạn truy vấn.
+- Xác minh dữ liệu trả về.
+- Bảo vệ kênh kết nối.
+- Không mở cổng mạng công khai không cần thiết.
+
+Kiến trúc Wallet Service chỉ triển khai các phương thức đọc.
+
+Có các bài kiểm thử bảo đảm không tồn tại luồng thực thi giao dịch thật.
+
+---
+
+# PHẦN 20. ĐÓNG GÓI WINDOWS 11
+
+Bàn giao:
+
+- Setup.exe hoặc MSIX.
+- Ứng dụng Windows 11 x64.
+- Biểu tượng Desktop.
+- Start Menu.
+- Phiên bản phần mềm.
+- Khả năng gỡ cài đặt.
+- Khả năng nâng cấp.
+- Database.
+- Cấu hình.
+- Log.
+- Backup.
+- Tài liệu.
+
+Cấu trúc dự án:
+
+GROK_BOT_TERMINAL/
+
+- SourceCode/
+- DesktopApp/
+- PhantomConnectCompanion/
+- Backend/
+- Database/
+- Config/
+- Logs/
+- Backup/
+- Installer/
+- Documentation/
+- Tests/
+- QA_TEST/
+- README.md
+
+Bắt buộc cài bộ cài thực tế trên máy ảo Windows 11 trước khi nghiệm thu.
+
+---
+
+# PHẦN 21. LỘ TRÌNH PHÁT TRIỂN
+
+Giai đoạn 1: Phân tích ảnh và video.
+
+Giai đoạn 2: Bóc tách chức năng và nghiệp vụ.
+
+Giai đoạn 3: Thiết kế giao diện theo ảnh.
+
+Giai đoạn 4: Xây dựng kiến trúc phần mềm.
+
+Giai đoạn 5: Xây dựng Database.
+
+Giai đoạn 6: Lập trình giao diện Desktop.
+
+Giai đoạn 7: Xây dựng 10 Agent.
+
+Giai đoạn 8: Kết nối Phantom và Solana.
+
+Giai đoạn 9: Tích hợp DEX Data.
+
+Giai đoạn 10: Hoàn thiện Paper Trading.
+
+Giai đoạn 11: Xây dựng Backtest Engine.
+
+Giai đoạn 12: Cài trên máy ảo Windows 11.
+
+Giai đoạn 13: Backtest dữ liệu thật.
+
+Giai đoạn 14: Phát hiện và sửa lỗi.
+
+Giai đoạn 15: Kiểm thử hồi quy.
+
+Giai đoạn 16: Tối ưu hiệu năng.
+
+Giai đoạn 17: Đóng gói.
+
+Giai đoạn 18: Nghiệm thu và bàn giao.
+
+Sau mỗi giai đoạn phải báo cáo:
+
+- Nội dung đã thực hiện.
+- Kết quả thực tế.
+- Phần đã hoàn thành.
+- Phần chưa hoàn thành.
+- Lỗi còn tồn tại.
+- Bằng chứng.
+- Công việc tiếp theo.
+
+Không tự ý bỏ qua giai đoạn.
+
+---
+
+# PHẦN 22. QUY TẮC LÀM VIỆC VỚI AI LẬP TRÌNH
+
+1. Phải tạo mã nguồn thực tế.
+2. Phải tạo file dự án đầy đủ.
+3. Phải lập trình từng module.
+4. Không chỉ trả lời bằng lý thuyết.
+5. Không chỉ tạo hình ảnh UI.
+6. Không tạo nút không có chức năng.
+7. Không sử dụng dữ liệu giả để tuyên bố đã kết nối.
+8. Không hard-code các chỉ số trong ảnh.
+9. Không tự ý thay đổi bố cục.
+10. Không bỏ qua Agent.
+11. Không tạo dự án rời rạc.
+12. Phải kiểm tra mã nguồn.
+13. Phải chạy thử.
+14. Phải sửa lỗi.
+15. Phải kiểm thử tích hợp.
+16. Phải lưu các phiên bản.
+17. Phải tạo báo cáo.
+18. Phải cung cấp bằng chứng.
+
+Nếu không có công cụ để thực hiện một công việc, phải báo rõ giới hạn.
+
+Không được tuyên bố đã cài máy ảo nếu chưa cài.
+
+Không được tuyên bố đã chạy Backtest nếu chưa chạy.
+
+Không tạo báo cáo, log hoặc ảnh chụp giả.
+
+Nếu dự án lớn, triển khai theo từng module nhưng duy trì một kiến trúc thống nhất.
+
+Ưu tiên hoàn thiện Dashboard đúng ảnh mẫu trước, sau đó phát triển nghiệp vụ và kết nối dữ liệu thực tế.
+
+---
+
+# PHẦN 23. TIÊU CHUẨN NGHIỆM THU
+
+## A. Giao diện
+
+- Đúng phong cách ảnh mẫu.
+- Có nền xanh đen.
+- Có viền xanh ngọc.
+- Có Header.
+- Có 10 Agent.
+- Có YOU.
+- Có Token Flow.
+- Có Central Flow.
+- Có 4 Statistics Cards.
+- Có Trade.
+- Có Session Terminal.
+- Có Equity.
+- Có System Log.
+- Có giao diện tiếng Việt.
+- Các thành phần có chức năng thật.
+- Có kiểm thử giao diện Windows 11.
+
+## B. Chức năng
+
+- Các Agent có xử lý thực tế.
+- Dữ liệu được đồng bộ.
+- Có Database.
+- Có Logger.
+- Có Paper Trading.
+- Có Backtest.
+- Có báo cáo.
+
+## C. Phantom và Solana
+
+- Có kết nối Phantom được hỗ trợ.
+- Có phương án máy tính.
+- Có phương án điện thoại.
+- Đọc được địa chỉ ví.
+- Đọc được số dư.
+- Đọc được token.
+- Không ký.
+- Không gửi giao dịch.
+
+## D. DEX
+
+- Có nguồn dữ liệu.
+- Có giá.
+- Có thanh khoản.
+- Có khối lượng.
+- Có báo giá tham khảo.
+- Có dữ liệu lịch sử.
+- Có kiểm tra chất lượng dữ liệu.
+
+## E. Backtest
+
+- Dữ liệu có nguồn gốc thực tế.
+- Có nhiều vòng kiểm thử.
+- Có báo cáo.
+- Có Log.
+- Có phân tích lỗi.
+- Có sửa lỗi.
+- Có hồi quy.
+- Có bằng chứng.
+
+## F. Máy ảo
+
+- Có Windows 11 VM thực tế.
+- Cài được ứng dụng.
+- Khởi chạy được.
+- Có ảnh chụp.
+- Có Log.
+- Có báo cáo môi trường.
+
+## G. Bàn giao
+
+- Có mã nguồn.
+- Có bộ cài.
+- Có tài liệu.
+- Có báo cáo kiểm thử.
+- Có báo cáo Backtest.
+- Có báo cáo sửa lỗi.
+- Có bằng chứng nghiệm thu.
+
+Không nghiệm thu khi còn lỗi Critical hoặc High chưa giải quyết.
+
+---
+
+# PHẦN 24. YÊU CẦU BẮT ĐẦU
+
+Hãy tiếp nhận ảnh và video được cung cấp.
+
+Bắt đầu bằng việc:
+
+1. Phân tích giao diện.
+2. Xây dựng sơ đồ bố cục.
+3. Phân tích video.
+4. Bóc tách 10 Agent.
+5. Xác định luồng nghiệp vụ.
+6. Thiết kế kiến trúc.
+7. Thiết kế Database.
+8. Lập kế hoạch phát triển.
+9. Bắt đầu xây dựng ứng dụng.
+
+Ưu tiên:
+
+BƯỚC 1: HOÀN THIỆN DASHBOARD GIỐNG ẢNH.
+
+BƯỚC 2: HOÀN THIỆN 10 AGENT.
+
+BƯỚC 3: TÍCH HỢP DỮ LIỆU SOLANA VÀ PHANTOM.
+
+BƯỚC 4: TÍCH HỢP DEX.
+
+BƯỚC 5: HOÀN THIỆN PAPER TRADING.
+
+BƯỚC 6: HOÀN THIỆN BACKTEST.
+
+BƯỚC 7: KIỂM THỬ MÁY ẢO.
+
+BƯỚC 8: SỬA LỖI VÀ NGHIỆM THU.
+
+Không dừng lại ở bản thiết kế.
+
+Phải tiếp tục xây dựng các thành phần có thể thực hiện trong môi trường lập trình và báo cáo trung thực phần nào chưa thực hiện được.
+
+---
+
+# MỤC TIÊU CUỐI CÙNG
+
+Xây dựng một phần mềm GROK BOT TERMINAL DESKTOP chuyên nghiệp cho Windows 11.
+
+Phần mềm phải có giao diện, bố cục và phong cách gần nhất với ảnh mẫu.
+
+Có đầy đủ 10 Agent và khu vực YOU.
+
+Có khả năng theo dõi dữ liệu Solana.
+
+Có kết nối Phantom trên máy tính và điện thoại bằng phương thức được hỗ trợ.
+
+Có khả năng đọc tài sản công khai.
+
+Có tích hợp dữ liệu thị trường DEX.
+
+Có hệ thống phân tích token.
+
+Có Paper Trading.
+
+Có Equity.
+
+Có Logger.
+
+Có Backtest với dữ liệu lịch sử thực tế.
+
+Có khả năng kiểm thử trên máy ảo Windows 11.
+
+Có khả năng phát hiện, ghi nhận và sửa lỗi.
+
+Có kiểm thử hồi quy.
+
+Có bộ cài đặt thực tế.
+
+Có mã nguồn đầy đủ.
+
+Có báo cáo và bằng chứng nghiệm thu.
+
+## 6 NGUYÊN TẮC KHÔNG ĐƯỢC VI PHẠM
+
+1. ẢNH MẪU LÀ CHUẨN THIẾT KẾ GIAO DIỆN.
+2. VIDEO LÀ CHUẨN THAM CHIẾU CHỨC NĂNG.
+3. SOLANA LÀ BLOCKCHAIN ƯU TIÊN.
+4. PHANTOM CHỈ ĐƯỢC KẾT NỐI ĐỌC DỮ LIỆU.
+5. PAPER TRADING LÀ CHẾ ĐỘ VẬN HÀNH DUY NHẤT.
+6. MỌI TUYÊN BỐ HOÀN THÀNH PHẢI CÓ BẰNG CHỨNG THỰC TẾ.
+
+KHÔNG CHỈ XÂY DỰNG GIAO DIỆN.
+
+KHÔNG CHỈ TẠO BẢN DEMO.
+
+KHÔNG CHỈ VIẾT MÃ NGUỒN.
+
+PHẢI XÂY DỰNG, KIỂM THỬ, BACKTEST, PHÁT HIỆN LỖI, SỬA LỖI, KIỂM THỬ LẠI VÀ BÀN GIAO SẢN PHẨM HOÀN CHỈNH.

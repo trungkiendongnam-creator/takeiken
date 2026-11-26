@@ -1,0 +1,8 @@
+{
+  "name": "Grok Bot Terminal",
+  "description": "Dark Neon Trading Terminal for Solana Mainnet read-only monitoring, Phantom Wallet read-only pairing, 10-agent Paper Trading simulation, and real historical DEX backtesting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

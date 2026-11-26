@@ -1,0 +1,74 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-canvas: #031713;
+    --bg-card: #06231F;
+    --bg-sub: #092D27;
+    --border-neon: #145B4B;
+    --accent-teal: #43D7B1;
+    --accent-orange: #FF9B45;
+    --accent-green: #39DEA2;
+    --accent-red: #EF6682;
+    --accent-purple: #A986F5;
+    --accent-yellow: #EAC64D;
+    --accent-blue: #49A9ED;
+    --text-primary: #E6F2ED;
+    --text-muted: #8FA9A0;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #031713;
+    color: #E6F2ED;
+    overflow-x: hidden;
+  }
+
+  .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  .font-mono-tabular {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom Dark Neon Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #031713;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #145B4B;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #43D7B1;
+}
+
+@keyframes flowPulse {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-flow-line {
+  animation: flowPulse 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-flow-line {
+    animation: none;
+  }
+}
