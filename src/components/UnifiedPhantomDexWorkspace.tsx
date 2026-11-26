@@ -8,6 +8,7 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 import type { TerminalSnapshot } from '../types/terminal';
 import { LiveDexSwapPanel } from './LiveDexSwapPanel';
 import { PhantomSolanaPanel } from './PhantomSolanaPanel';
@@ -70,7 +71,7 @@ export const UnifiedPhantomDexWorkspace: React.FC<UnifiedPhantomDexWorkspaceProp
     try {
       const resp = await provider.connect({ onlyIfTrusted: false });
       const pubKey = resp.publicKey.toString();
-      const res = await fetch('/api/wallet/connect', {
+      const res = await apiFetch('/api/wallet/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -95,7 +96,7 @@ export const UnifiedPhantomDexWorkspace: React.FC<UnifiedPhantomDexWorkspaceProp
   const handleQuickSyncRpc = async () => {
     setWalletBusy(true);
     try {
-      const res = await fetch('/api/wallet/sync', { method: 'POST' });
+      const res = await apiFetch('/api/wallet/sync', { method: 'POST' });
       const data = (await res.json()) as { ok?: boolean; error?: string; snapshot?: TerminalSnapshot };
       if (!res.ok || !data.snapshot) throw new Error(data.error || 'Đồng bộ RPC thất bại');
       onRefreshState(data.snapshot);
@@ -118,7 +119,7 @@ export const UnifiedPhantomDexWorkspace: React.FC<UnifiedPhantomDexWorkspaceProp
       if (provider?.disconnect) {
         await provider.disconnect().catch(() => {});
       }
-      const res = await fetch('/api/wallet/disconnect', { method: 'POST' });
+      const res = await apiFetch('/api/wallet/disconnect', { method: 'POST' });
       const data = (await res.json()) as { snapshot?: TerminalSnapshot };
       if (data.snapshot) onRefreshState(data.snapshot);
       onToast('Đã ngắt kết nối Ví Phantom.');
@@ -159,7 +160,7 @@ export const UnifiedPhantomDexWorkspace: React.FC<UnifiedPhantomDexWorkspaceProp
                   {wallet.shortAddress} ·{' '}
                   {wallet.solBalance !== null ? `${wallet.solBalance.toFixed(4)} SOL` : `RPC ${wallet.rpcStatus}`}
                   <span className="ml-1 rounded bg-[#031713] px-1.5 py-0.5 text-[10px] text-[#43D7B1]">
-                    {wallet.connectionMethod === 'PHANTOM_EXTENSION' ? 'KÝ AN TOÀN' : 'CHỈ ĐỌC'}
+                    {wallet.connectionMethod === 'PHANTOM_EXTENSION' ? 'NON-CUSTODIAL' : 'CHỈ ĐỌC ĐỊA CHỈ'}
                   </span>
                 </span>
                 <button

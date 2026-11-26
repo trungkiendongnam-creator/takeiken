@@ -14,6 +14,7 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 import type {
   DexRouterOption,
   DexTokenOption,
@@ -120,7 +121,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
 
   // Load curated + scanner tokens
   useEffect(() => {
-    fetch('/api/dex/tokens')
+    apiFetch('/api/dex/tokens')
       .then((res) => res.json())
       .then((data: { ok?: boolean; tokens?: DexTokenOption[] }) => {
         if (data.ok && Array.isArray(data.tokens)) {
@@ -128,7 +129,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
         }
       })
       .catch(() => {});
-  }, [snapshot.tokens.length]);
+  }, [snapshot.tokens]);
 
   useEffect(() => {
     if (initialOutputMint && initialOutputMint !== inputMint) {
@@ -177,7 +178,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
     setQuoteError(null);
     setSimResult(null);
     try {
-      const res = await fetch('/api/dex/quote', {
+      const res = await apiFetch('/api/dex/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -222,7 +223,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
       setSwapBusy(true);
       const resp = await provider.connect({ onlyIfTrusted: false });
       const pubKey = resp.publicKey.toString();
-      const res = await fetch('/api/wallet/connect', {
+      const res = await apiFetch('/api/wallet/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -249,7 +250,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
     if (!trimmed) return;
     setQuoteError(null);
     try {
-      const res = await fetch(`/api/dex/mint-info/${encodeURIComponent(trimmed)}`);
+      const res = await apiFetch(`/api/dex/mint-info/${encodeURIComponent(trimmed)}`);
       const data = (await res.json()) as {
         ok?: boolean;
         error?: string;
@@ -279,7 +280,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
     setSwapError(null);
     setSimResult(null);
     try {
-      const buildRes = await fetch('/api/dex/build-swap', {
+      const buildRes = await apiFetch('/api/dex/build-swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -297,7 +298,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
         throw new Error(built.error || 'Không tạo được giao dịch mô phỏng');
       }
 
-      const simRes = await fetch('/api/dex/simulate', {
+      const simRes = await apiFetch('/api/dex/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ swapTransaction: built.swapTransaction }),
@@ -323,6 +324,17 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
     setSwapError(null);
     setLastTxSignature(null);
 
+    if (inputMint === outputMint) {
+      setSwapError('Token trả (Sell) và Token nhận (Buy) không được trùng nhau.');
+      return;
+    }
+    if (availableInputBalance !== null && Number(amountUi) > availableInputBalance) {
+      setSwapError(
+        `Số dư ${inputTokenInfo?.symbol ?? 'tài sản'} hiện tại (${availableInputBalance.toFixed(4)}) không đủ để thực hiện lệnh ${amountUi}.`
+      );
+      return;
+    }
+
     const provider = getPhantomProvider();
     if (!provider) {
       setSwapError(
@@ -337,7 +349,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
       const userPublicKey = conn.publicKey.toString();
 
       // 1. Fetch fresh quote immediately prior to build so slippage is accurate
-      const freshQuoteRes = await fetch('/api/dex/quote', {
+      const freshQuoteRes = await apiFetch('/api/dex/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -360,7 +372,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
       setQuote(activeQuote);
 
       // 2. Build unsigned VersionedTransaction from Jupiter v1 API
-      const buildRes = await fetch('/api/dex/build-swap', {
+      const buildRes = await apiFetch('/api/dex/build-swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -391,7 +403,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
       } else if (typeof provider.signTransaction === 'function') {
         const signedTx = await provider.signTransaction(unsignedTx);
         const signedBase64 = uint8ArrayToBase64(signedTx.serialize());
-        const bRes = await fetch('/api/dex/broadcast', {
+        const bRes = await apiFetch('/api/dex/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ signedTransaction: signedBase64 }),
@@ -408,7 +420,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
       setLastTxSignature(signature);
 
       // 4. Record & verify tx on Solana Mainnet RPC + sync wallet
-      const recRes = await fetch('/api/dex/record-tx', {
+      const recRes = await apiFetch('/api/dex/record-tx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -445,7 +457,7 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
   const handleRefreshTxStatus = async (sig: string) => {
     setRefreshingSig(sig);
     try {
-      const res = await fetch(`/api/dex/refresh-tx/${encodeURIComponent(sig)}`, { method: 'POST' });
+      const res = await apiFetch(`/api/dex/refresh-tx/${encodeURIComponent(sig)}`, { method: 'POST' });
       const data = (await res.json()) as { ok?: boolean; snapshot?: TerminalSnapshot };
       if (res.ok && data.snapshot) {
         onRefreshState(data.snapshot);
@@ -537,9 +549,9 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
             </span>
           </div>
           <a
-            href={`https://solscan.io/tx/${lastTxSignature}`}
+            href={`https://solscan.io/tx/${encodeURIComponent(lastTxSignature)}`}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded border border-[#39DEA2]/60 bg-[#031713] px-2.5 py-1 font-semibold text-[#39DEA2] hover:bg-[#092D27]"
           >
             <span>Kiểm tra trên Solscan</span>
@@ -583,7 +595,13 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={inputMint}
-                onChange={(e) => setInputMint(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (next === outputMint) {
+                    setOutputMint(inputMint);
+                  }
+                  setInputMint(next);
+                }}
                 className="rounded-lg border border-[#145B4B] bg-[#06231F] px-2.5 py-2 font-mono-tabular text-xs font-bold text-[#E6F2ED] focus:border-[#43D7B1] focus:outline-none"
               >
                 {tokens.map((t) => (
@@ -651,7 +669,13 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={outputMint}
-                onChange={(e) => setOutputMint(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  if (next === inputMint) {
+                    setInputMint(outputMint);
+                  }
+                  setOutputMint(next);
+                }}
                 className="flex-1 min-w-[180px] rounded-lg border border-[#145B4B] bg-[#06231F] px-2.5 py-2 font-mono-tabular text-xs font-bold text-[#E6F2ED] focus:border-[#43D7B1] focus:outline-none"
               >
                 {tokens.map((t) => (
@@ -694,17 +718,35 @@ export const LiveDexSwapPanel: React.FC<LiveDexSwapPanelProps> = ({
                 <span className="text-[#8FA9A0]">Decimals: {customMintAudit.decimals}</span>
                 <span
                   className={
-                    customMintAudit.mintAuthorityRevoked ? 'text-[#39DEA2]' : 'text-[#EF6682]'
+                    customMintAudit.mintAuthorityRevoked === true
+                      ? 'text-[#39DEA2]'
+                      : customMintAudit.mintAuthorityRevoked === null
+                      ? 'text-[#F5B74F]'
+                      : 'text-[#EF6682]'
                   }
                 >
-                  Mint Auth: {customMintAudit.mintAuthorityRevoked ? 'Đã hủy (An toàn)' : 'Còn mở (Cảnh báo)'}
+                  Mint Auth:{' '}
+                  {customMintAudit.mintAuthorityRevoked === true
+                    ? 'Đã hủy (An toàn)'
+                    : customMintAudit.mintAuthorityRevoked === null
+                    ? 'Chưa xác minh (Cảnh báo)'
+                    : 'Còn mở (Cảnh báo)'}
                 </span>
                 <span
                   className={
-                    customMintAudit.freezeAuthorityRevoked ? 'text-[#39DEA2]' : 'text-[#EF6682]'
+                    customMintAudit.freezeAuthorityRevoked === true
+                      ? 'text-[#39DEA2]'
+                      : customMintAudit.freezeAuthorityRevoked === null
+                      ? 'text-[#F5B74F]'
+                      : 'text-[#EF6682]'
                   }
                 >
-                  Freeze Auth: {customMintAudit.freezeAuthorityRevoked ? 'Đã hủy (An toàn)' : 'Còn mở (Cảnh báo)'}
+                  Freeze Auth:{' '}
+                  {customMintAudit.freezeAuthorityRevoked === true
+                    ? 'Đã hủy (An toàn)'
+                    : customMintAudit.freezeAuthorityRevoked === null
+                    ? 'Chưa xác minh (Cảnh báo)'
+                    : 'Còn mở (Cảnh báo)'}
                 </span>
               </div>
             )}

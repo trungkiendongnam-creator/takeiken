@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Wallet,
 } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 import type { TerminalSnapshot } from '../types/terminal';
 
 interface PhantomLegacyProvider {
@@ -120,7 +121,7 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
     setBusy(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/wallet/deposit-qr', {
+      const res = await apiFetch('/api/wallet/deposit-qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -164,19 +165,24 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
   const handleSimulateTransfer = async () => {
     const fromAddr = snapshot.wallet.publicAddress;
     const toAddr = (targetAddress || snapshot.wallet.publicAddress || '').trim();
+    const numAmt = Number(amount);
     if (!fromAddr) {
       setErrorMsg('Cần kết nối ví Phantom nguồn trước khi kiểm tra giao dịch rút/nạp.');
       return;
     }
-    if (!toAddr) {
-      setErrorMsg('Vui lòng nhập địa chỉ Ví Phantom nhận.');
+    if (!toAddr || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(toAddr)) {
+      setErrorMsg('Địa chỉ Ví Phantom nhận không đúng định dạng Solana Base58.');
+      return;
+    }
+    if (!Number.isFinite(numAmt) || numAmt <= 0) {
+      setErrorMsg('Vui lòng nhập số lượng hợp lệ (> 0).');
       return;
     }
     setBusy(true);
     setErrorMsg(null);
     setSimInfo(null);
     try {
-      const buildRes = await fetch('/api/wallet/build-transfer', {
+      const buildRes = await apiFetch('/api/wallet/build-transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -195,7 +201,7 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
         throw new Error(built.error || 'Không tạo được giao dịch kiểm tra');
       }
 
-      const simRes = await fetch('/api/dex/simulate', {
+      const simRes = await apiFetch('/api/dex/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ swapTransaction: built.transactionBase64 }),
@@ -224,6 +230,29 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
   const handleExecutePhantomTransfer = async (direction: 'DEPOSIT' | 'WITHDRAW') => {
     setErrorMsg(null);
     setSuccessSig(null);
+
+    const numAmt = Number(amount);
+    if (!Number.isFinite(numAmt) || numAmt <= 0) {
+      setErrorMsg('Vui lòng nhập số lượng nạp/rút hợp lệ (> 0).');
+      return;
+    }
+    if (
+      direction === 'WITHDRAW' &&
+      selectedAsset.balance !== null &&
+      numAmt > selectedAsset.balance
+    ) {
+      setErrorMsg(
+        `Số dư ${selectedAsset.symbol} khả dụng (${selectedAsset.balance.toFixed(4)}) không đủ để rút ${amount}.`
+      );
+      return;
+    }
+
+    const toAddr = (targetAddress || snapshot.wallet.publicAddress || '').trim();
+    if (!toAddr || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(toAddr)) {
+      setErrorMsg('Vui lòng nhập địa chỉ Ví Phantom nhận hợp lệ (Solana Base58).');
+      return;
+    }
+
     const provider = getPhantomProvider();
     if (!provider) {
       setErrorMsg(
@@ -232,18 +261,12 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
       return;
     }
 
-    const toAddr = (targetAddress || snapshot.wallet.publicAddress || '').trim();
-    if (!toAddr) {
-      setErrorMsg('Vui lòng nhập địa chỉ Ví Phantom nhận.');
-      return;
-    }
-
     setBusy(true);
     try {
       const conn = await provider.connect({ onlyIfTrusted: false });
       const fromAddr = conn.publicKey.toString();
 
-      const buildRes = await fetch('/api/wallet/build-transfer', {
+      const buildRes = await apiFetch('/api/wallet/build-transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -274,7 +297,7 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
       } else if (typeof provider.signTransaction === 'function') {
         const signed = await provider.signTransaction(tx);
         const signedBase64 = uint8ArrayToBase64(signed.serialize());
-        const bRes = await fetch('/api/dex/broadcast', {
+        const bRes = await apiFetch('/api/dex/broadcast', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ signedTransaction: signedBase64 }),
@@ -290,7 +313,7 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
 
       setSuccessSig(signature);
 
-      const recRes = await fetch('/api/wallet/record-transfer', {
+      const recRes = await apiFetch('/api/wallet/record-transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -326,7 +349,7 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
   const handleRefreshTransfer = async (sig: string) => {
     setRefreshingSig(sig);
     try {
-      const res = await fetch(`/api/wallet/refresh-transfer/${encodeURIComponent(sig)}`, {
+      const res = await apiFetch(`/api/wallet/refresh-transfer/${encodeURIComponent(sig)}`, {
         method: 'POST',
       });
       const data = (await res.json()) as { ok?: boolean; snapshot?: TerminalSnapshot };
@@ -415,9 +438,9 @@ export const PhantomTransferPanel: React.FC<PhantomTransferPanelProps> = ({
             Giao dịch thành công! Signature: <strong>{successSig.slice(0, 14)}...</strong>
           </span>
           <a
-            href={`https://solscan.io/tx/${successSig}`}
+            href={`https://solscan.io/tx/${encodeURIComponent(successSig)}`}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded border border-[#39DEA2]/60 bg-[#031713] px-2 py-1 font-semibold hover:bg-[#092D27]"
           >
             Xem Solscan <ExternalLink className="h-3 w-3" />

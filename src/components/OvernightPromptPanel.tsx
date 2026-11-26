@@ -31,7 +31,7 @@ interface OvernightPromptPanelProps {
 }
 
 const OVERNIGHT_STAGES = [
-  '1/5 · Khởi tạo phiên & Kiểm tra giới hạn sụt giảm -30%',
+  '1/5 · Khởi tạo phiên & Kiểm tra giới hạn sụt giảm ngày',
   '2/5 · SCANNER: Quét pump.fun, Raydium, Meteora (<6h)',
   '3/5 · RUG CHECK: Kiểm định Mint/Freeze & Thanh khoản $40k',
   '4/5 · SIZER & EXECUTOR: Tính vốn kép & Khớp mô phỏng',
@@ -67,12 +67,15 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
   const [cycleDone, setCycleDone] = useState<boolean>(false);
   const [draftStartTime, setDraftStartTime] = useState<string>(cfg.startTime || '23:00');
   const [draftEndTime, setDraftEndTime] = useState<string>(cfg.endTime || '07:00');
+  const [draftStartBalance, setDraftStartBalance] = useState<string>(String(cfg.startBalanceUsd || 70));
+  const [scheduleErr, setScheduleErr] = useState<string | null>(null);
   const [savingCfg, setSavingCfg] = useState<boolean>(false);
 
   useEffect(() => {
     setDraftStartTime(cfg.startTime || '23:00');
     setDraftEndTime(cfg.endTime || '07:00');
-  }, [cfg.startTime, cfg.endTime]);
+    setDraftStartBalance(String(cfg.startBalanceUsd || 70));
+  }, [cfg.startTime, cfg.endTime, cfg.startBalanceUsd]);
 
   // Live 1-second clock for dynamic startTime -> endTime progress calculation
   useEffect(() => {
@@ -178,10 +181,27 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
     }
   };
 
-  const handleSaveSchedule = async (start = draftStartTime, end = draftEndTime) => {
+  const handleSaveSchedule = async (
+    start = draftStartTime,
+    end = draftEndTime,
+    balanceVal = Number(draftStartBalance)
+  ) => {
+    setScheduleErr(null);
+    if (start === end) {
+      setScheduleErr('Giờ bắt đầu và giờ kết thúc không được trùng nhau.');
+      return;
+    }
+    if (!Number.isFinite(balanceVal) || balanceVal < 10 || balanceVal > 100000) {
+      setScheduleErr('Vốn đầu phiên phải nằm trong khoảng $10 – $100,000.');
+      return;
+    }
     setSavingCfg(true);
     try {
-      await onUpdateConfig({ startTime: start, endTime: end });
+      await onUpdateConfig({
+        startTime: start,
+        endTime: end,
+        startBalanceUsd: Number(balanceVal.toFixed(2)),
+      });
     } finally {
       setSavingCfg(false);
     }
@@ -233,65 +253,93 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
       </div>
 
       {/* Overnight Schedule & ON/OFF Control Panel */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#145B4B] bg-[#06231F] px-4 py-3 font-mono-tabular text-xs">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-bold text-[#E6F2ED]">CÀI ĐẶT THỜI GIAN PHIÊN ĐÊM:</span>
-          <div className="flex items-center gap-1.5">
-            <label className="text-[11px] text-[#8FA9A0]">Bắt đầu:</label>
-            <input
-              type="time"
-              value={draftStartTime}
-              onChange={(e) => setDraftStartTime(e.target.value)}
-              className="rounded border border-[#145B4B] bg-[#031713] px-2 py-1 text-xs font-bold text-[#43D7B1] focus:border-[#43D7B1] focus:outline-none"
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-[11px] text-[#8FA9A0]">Kết thúc:</label>
-            <input
-              type="time"
-              value={draftEndTime}
-              onChange={(e) => setDraftEndTime(e.target.value)}
-              className="rounded border border-[#145B4B] bg-[#031713] px-2 py-1 text-xs font-bold text-[#43D7B1] focus:border-[#43D7B1] focus:outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            disabled={savingCfg}
-            onClick={() => handleSaveSchedule()}
-            className="inline-flex items-center gap-1 rounded border border-[#43D7B1]/60 bg-[#092D27] px-2.5 py-1 text-[11px] font-semibold text-[#43D7B1] hover:bg-[#145B4B]/60 disabled:opacity-50 cursor-pointer"
-          >
-            <Save className="h-3 w-3" />
-            Lưu khung giờ
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-          <span className="text-[#8FA9A0]">Mẫu nhanh:</span>
-          {[
-            ['23:00', '07:00'],
-            ['22:00', '06:00'],
-            ['00:00', '08:00'],
-            ['20:00', '04:00'],
-          ].map(([s, e]) => (
+      <div className="space-y-2 rounded-xl border border-[#145B4B] bg-[#06231F] px-4 py-3 font-mono-tabular text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-bold text-[#E6F2ED]">CÀI ĐẶT THỜI GIAN & VỐN PHIÊN ĐÊM:</span>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] text-[#8FA9A0]">Bắt đầu:</label>
+              <input
+                type="time"
+                value={draftStartTime}
+                onChange={(e) => {
+                  setDraftStartTime(e.target.value);
+                  setScheduleErr(null);
+                }}
+                className="rounded border border-[#145B4B] bg-[#031713] px-2 py-1 text-xs font-bold text-[#43D7B1] focus:border-[#43D7B1] focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] text-[#8FA9A0]">Kết thúc:</label>
+              <input
+                type="time"
+                value={draftEndTime}
+                onChange={(e) => {
+                  setDraftEndTime(e.target.value);
+                  setScheduleErr(null);
+                }}
+                className="rounded border border-[#145B4B] bg-[#031713] px-2 py-1 text-xs font-bold text-[#43D7B1] focus:border-[#43D7B1] focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] text-[#8FA9A0]">Vốn đầu ($):</label>
+              <input
+                type="number"
+                min="10"
+                max="100000"
+                step="1"
+                value={draftStartBalance}
+                onChange={(e) => {
+                  setDraftStartBalance(e.target.value);
+                  setScheduleErr(null);
+                }}
+                className="w-20 rounded border border-[#145B4B] bg-[#031713] px-2 py-1 text-right text-xs font-bold text-[#EAC64D] focus:border-[#43D7B1] focus:outline-none"
+              />
+            </div>
             <button
-              key={`${s}-${e}`}
               type="button"
               disabled={savingCfg}
-              onClick={() => {
-                setDraftStartTime(s);
-                setDraftEndTime(e);
-                void handleSaveSchedule(s, e);
-              }}
-              className={`rounded border px-2 py-0.5 cursor-pointer ${
-                cfg.startTime === s && cfg.endTime === e
-                  ? 'border-[#FF9B45] bg-[#FF9B45]/15 text-[#FF9B45] font-bold'
-                  : 'border-[#145B4B] bg-[#031713] text-[#8FA9A0] hover:border-[#43D7B1]'
-              }`}
+              onClick={() => handleSaveSchedule()}
+              className="inline-flex items-center gap-1 rounded border border-[#43D7B1]/60 bg-[#092D27] px-2.5 py-1 text-[11px] font-semibold text-[#43D7B1] hover:bg-[#145B4B]/60 disabled:opacity-50 cursor-pointer"
             >
-              {s} → {e}
+              <Save className="h-3 w-3" />
+              Lưu cấu hình
             </button>
-          ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+            <span className="text-[#8FA9A0]">Mẫu nhanh:</span>
+            {[
+              ['23:00', '07:00'],
+              ['22:00', '06:00'],
+              ['00:00', '08:00'],
+              ['20:00', '04:00'],
+            ].map(([s, e]) => (
+              <button
+                key={`${s}-${e}`}
+                type="button"
+                disabled={savingCfg}
+                onClick={() => {
+                  setDraftStartTime(s);
+                  setDraftEndTime(e);
+                  void handleSaveSchedule(s, e, Number(draftStartBalance));
+                }}
+                className={`rounded border px-2 py-0.5 cursor-pointer ${
+                  cfg.startTime === s && cfg.endTime === e
+                    ? 'border-[#FF9B45] bg-[#FF9B45]/15 text-[#FF9B45] font-bold'
+                    : 'border-[#145B4B] bg-[#031713] text-[#8FA9A0] hover:border-[#43D7B1]'
+                }`}
+              >
+                {s} → {e}
+              </button>
+            ))}
+          </div>
         </div>
+        {scheduleErr && (
+          <div className="rounded border border-[#EF6682]/60 bg-[#EF6682]/10 px-2.5 py-1 text-[11px] text-[#EF6682]">
+            {scheduleErr}
+          </div>
+        )}
       </div>
 
       {/* Progress Bar: Overnight Session Completion & Estimated Time Remaining */}
@@ -366,7 +414,7 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
               : snapshot.isRunning && !recap.drawdownPaused
               ? `Pipeline đang hoạt động · ${recap.totalTrades} lệnh đã khớp`
               : recap.drawdownPaused
-              ? 'Đã tạm dừng do chạm giới hạn sụt giảm -30%'
+              ? `Đã tạm dừng do chạm giới hạn sụt giảm -${cfg.dailyDrawdownLimitPct}%`
               : 'Pipeline đang tạm dừng'}
           </span>
           <span>Mốc tổng kết: {cfg.endTime}</span>
@@ -436,7 +484,7 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
                 <ul className="space-y-1 text-[11px] text-[#E6F2ED]/90 list-disc pl-4">
                   <li>Chỉ vào lệnh khi <strong>SCANNER</strong> báo tối thiểu <strong>2 tín hiệu</strong> và <strong>RUG CHECK</strong> PASS.</li>
                   <li><strong>Không đuổi giá (No chasing):</strong> bỏ qua nếu đồng coin đã tăng <strong>+300%</strong> trong 1h qua mà chưa điều chỉnh.</li>
-                  <li><strong>Giới hạn sụt giảm ngày -30% từ đỉnh:</strong> tạm dừng toàn phiên và ghi rõ lý do.</li>
+                  <li><strong>Giới hạn sụt giảm ngày -{cfg.dailyDrawdownLimitPct}% từ đỉnh:</strong> tạm dừng toàn phiên và ghi rõ lý do.</li>
                   <li><strong>Lãi kép:</strong> cộng dồn lợi nhuận vào quy mô lệnh tiếp theo.</li>
                 </ul>
               </div>
@@ -497,7 +545,7 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
                     : 'border-[#39DEA2]/60 bg-[#39DEA2]/10 text-[#39DEA2]'
                 }`}
               >
-                {recap.drawdownPaused ? 'ĐÃ TẠM DỪNG (-30%)' : 'ĐANG BẢO VỆ'}
+                {recap.drawdownPaused ? `ĐÃ TẠM DỪNG (-${cfg.dailyDrawdownLimitPct}%)` : 'ĐANG BẢO VỆ'}
               </span>
             </div>
 
@@ -553,18 +601,18 @@ export const OvernightPromptPanel: React.FC<OvernightPromptPanelProps> = ({
               <div className="flex items-center gap-2 rounded-lg border border-[#EF6682] bg-[#EF6682]/10 p-2.5 text-xs text-[#EF6682]">
                 <AlertOctagon className="h-4 w-4 shrink-0" />
                 <span>
-                  Hệ thống đã kích hoạt ngắt mạch do sụt giảm từ đỉnh đạt ngưỡng -{cfg.dailyDrawdownLimitPct}%. Nhấn "Áp dụng $70 & Chạy ngay" để khởi tạo phiên mới.
+                  Hệ thống đã kích hoạt ngắt mạch do sụt giảm từ đỉnh đạt ngưỡng -{cfg.dailyDrawdownLimitPct}%. Nhấn &quot;Áp dụng ${cfg.startBalanceUsd} &amp; Chạy ngay&quot; để khởi tạo phiên mới.
                 </span>
               </div>
             )}
           </div>
 
-          {/* 07:00 Morning Recap Panel */}
+          {/* End-of-Session Morning Recap Panel */}
           <div className="rounded-xl border border-[#EAC64D]/50 bg-[#06231F] p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-[#145B4B]/60 pb-2">
               <span className="flex items-center gap-2 text-xs font-bold tracking-wider text-[#EAC64D]">
                 <Clock className="h-4 w-4" />
-                BÁO CÁO TỔNG KẾT 07:00 SÁNG (OUTPUT)
+                BÁO CÁO TỔNG KẾT {cfg.endTime} (OUTPUT)
               </span>
               <span className="font-mono-tabular text-[11px] text-[#8FA9A0]">
                 {recap.totalTrades} lệnh ({recap.wins}T / {recap.losses}B)

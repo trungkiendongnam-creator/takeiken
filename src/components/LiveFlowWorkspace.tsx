@@ -9,7 +9,6 @@ import {
   Power,
   RotateCcw,
   Search,
-  ShieldAlert,
   TrendingUp,
   Zap,
 } from 'lucide-react';
@@ -22,6 +21,7 @@ import type {
   VolatilityWindow,
 } from '../types/terminal';
 import { AgentLeaderboardTable } from './AgentLeaderboardTable';
+import { DailyDrawdownGuardCard } from './DailyDrawdownGuardCard';
 import { DailyTradingSummaryCard } from './DailyTradingSummaryCard';
 import { GrokLogo } from './GrokLogo';
 import { PerformanceHeatmap } from './PerformanceHeatmap';
@@ -34,7 +34,7 @@ interface LiveFlowWorkspaceProps {
   snapshot: TerminalSnapshot;
   selectedMint: string;
   onSelectMint: (mint: string) => void;
-  onSimulatePaper: (mint: string, action: 'OPEN_SIM' | 'CLOSE_SIM', mult?: number) => void;
+  onSimulatePaper: (mint: string, action: 'OPEN_SIM' | 'CLOSE_SIM') => void;
   onResetPaper: () => void;
   simBusy: boolean;
   onCreateAlertRule: (payload: {
@@ -52,6 +52,13 @@ interface LiveFlowWorkspaceProps {
   overnightBusy: boolean;
   onOpenLiveTradeForMint: (mintAddress: string) => void;
   onToggleOvernightEnabled: (enabled: boolean) => Promise<void>;
+  onUpdateDrawdownConfig: (payload: {
+    enabled?: boolean;
+    maxDailyDrawdownPct?: number;
+    minEquityThresholdUsd?: number | null;
+    clearHalt?: boolean;
+  }) => Promise<void>;
+  drawdownBusy: boolean;
 }
 
 function formatPrice(price: number): string {
@@ -117,25 +124,23 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
   overnightBusy,
   onOpenLiveTradeForMint,
   onToggleOvernightEnabled,
+  onUpdateDrawdownConfig,
+  drawdownBusy,
 }) => {
   const [logSearch, setLogSearch] = useState('');
   const [logFilter, setLogFilter] = useState<string>('ALL');
   const [hoveredEquityIdx, setHoveredEquityIdx] = useState<number | null>(null);
 
-  const selectedToken: TokenFlowItem = useMemo(() => {
+  const selectedToken: TokenFlowItem | undefined = useMemo(() => {
     return (
       snapshot.tokens.find((t) => t.mintAddress === selectedMint) ??
-      snapshot.tokens.find((t) => t.symbol === '$CLAUDIA') ??
       snapshot.tokens[0]
     );
   }, [snapshot.tokens, selectedMint]);
 
   const activeTrade: PaperTradeRecord | undefined = useMemo(() => {
     if (!selectedToken) return snapshot.trades[0];
-    return (
-      snapshot.trades.find((tr) => tr.mintAddress === selectedToken.mintAddress) ??
-      snapshot.trades[0]
-    );
+    return snapshot.trades.find((tr) => tr.mintAddress === selectedToken.mintAddress);
   }, [snapshot.trades, selectedToken]);
 
   const openTradeForSelected = useMemo(() => {
@@ -203,7 +208,7 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
   const hoveredEq = hoveredEquityIdx !== null ? svgCoords[hoveredEquityIdx] : null;
 
   // Sparkline for Trade Detail
-  const spark = activeTrade?.sparkline ?? [1, 1.15, 1.32, 1.54, 1.78];
+  const spark = activeTrade?.sparkline ?? [1, 1];
   const sMin = Math.min(...spark) * 0.95;
   const sMax = Math.max(...spark) * 1.05;
   const sRange = Math.max(0.01, sMax - sMin);
@@ -282,6 +287,14 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
       {/* DAILY TRADING SUMMARY CARD */}
       <DailyTradingSummaryCard snapshot={snapshot} />
 
+      {/* MAXIMUM DAILY DRAWDOWN GUARD */}
+      <DailyDrawdownGuardCard
+        guard={snapshot.dailyDrawdownGuard}
+        busy={drawdownBusy || simBusy}
+        onUpdateConfig={onUpdateDrawdownConfig}
+        onResetPaper={onResetPaper}
+      />
+
       {/* 1 + 2 + 3: LIVE FLOW + TOKEN FLOW STRIP + CENTRAL FLOW DIAGRAM */}
       <section className="rounded-xl border border-[#145B4B] bg-[#06231F] p-3.5 shadow-[0_0_24px_rgba(3,23,19,0.8)]">
         {/* LIVE FLOW Header */}
@@ -296,54 +309,72 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
           <div className="flex items-center gap-3 font-mono-tabular text-xs text-[#8FA9A0]">
             <span>đã kiểm tra {stats.tokensChecked}</span>
             <span>·</span>
-            <span className="text-[#43D7B1]">{snapshot.isRunning ? 'ĐANG STREAM' : 'TẠM DỪNG'}</span>
+            <span
+              className={
+                snapshot.dailyDrawdownGuard.isHalted
+                  ? 'text-[#EF6682] font-bold'
+                  : 'text-[#43D7B1]'
+              }
+            >
+              {snapshot.dailyDrawdownGuard.isHalted
+                ? 'NGẮT MẠCH DRAWDOWN'
+                : snapshot.isRunning
+                ? 'ĐANG STREAM'
+                : 'TẠM DỪNG'}
+            </span>
           </div>
         </div>
 
         {/* TOKEN FLOW Horizontal Strip */}
         <div className="flex gap-2.5 overflow-x-auto pb-2">
-          {snapshot.tokens.map((tok) => {
-            const isSel = selectedToken?.mintAddress === tok.mintAddress;
-            const chg = tok.priceChange1h;
-            return (
-              <button
-                key={tok.mintAddress}
-                type="button"
-                onClick={() => onSelectMint(tok.mintAddress)}
-                className={`min-w-[175px] shrink-0 rounded-lg border px-3 py-2 text-left transition-all cursor-pointer ${
-                  isSel
-                    ? 'border-[#FF9B45] bg-[#092D27] shadow-[0_0_12px_rgba(255,155,69,0.22)]'
-                    : 'border-[#145B4B] bg-[#041A16] hover:border-[#43D7B1]'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[#E6F2ED] truncate">{tok.symbol}</span>
-                  <span
-                    className={`font-mono-tabular text-[10px] font-semibold ${
-                      tok.status === 'FILTERED'
-                        ? 'text-[#EF6682]'
-                        : tok.status === 'OPEN'
-                        ? 'text-[#39DEA2]'
-                        : 'text-[#43D7B1]'
-                    }`}
-                  >
-                    {formatTokenStatusVi(tok.status)}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-baseline justify-between gap-2 font-mono-tabular text-xs">
-                  <span className="text-[#8FA9A0]">{formatPrice(tok.priceUsd)}</span>
-                  <span className={chg >= 0 ? 'text-[#39DEA2]' : 'text-[#EF6682]'}>
-                    {chg >= 0 ? '+' : ''}
-                    {chg.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center justify-between font-mono-tabular text-[10px] text-[#8FA9A0]">
-                  <span>{tok.mintAddress.slice(0, 4)}..{tok.mintAddress.slice(-3)}</span>
-                  <span>{tok.dexId}</span>
-                </div>
-              </button>
-            );
-          })}
+          {snapshot.tokens.length === 0 ? (
+            <div className="w-full rounded-lg border border-dashed border-[#145B4B] bg-[#041A16] px-4 py-4 text-center font-mono-tabular text-xs text-[#8FA9A0]">
+              Chưa có cặp token nào trong phiên mới. Nhấn <strong className="text-[#43D7B1]">Quét DEX Solana trực tiếp</strong> trên thanh công cụ để nạp dữ liệu thị trường thật.
+            </div>
+          ) : (
+            snapshot.tokens.map((tok) => {
+              const isSel = selectedToken?.mintAddress === tok.mintAddress;
+              const chg = tok.priceChange1h;
+              return (
+                <button
+                  key={tok.mintAddress}
+                  type="button"
+                  onClick={() => onSelectMint(tok.mintAddress)}
+                  className={`min-w-[175px] shrink-0 rounded-lg border px-3 py-2 text-left transition-all cursor-pointer ${
+                    isSel
+                      ? 'border-[#FF9B45] bg-[#092D27] shadow-[0_0_12px_rgba(255,155,69,0.22)]'
+                      : 'border-[#145B4B] bg-[#041A16] hover:border-[#43D7B1]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[#E6F2ED] truncate">{tok.symbol}</span>
+                    <span
+                      className={`font-mono-tabular text-[10px] font-semibold ${
+                        tok.status === 'FILTERED'
+                          ? 'text-[#EF6682]'
+                          : tok.status === 'OPEN'
+                          ? 'text-[#39DEA2]'
+                          : 'text-[#43D7B1]'
+                      }`}
+                    >
+                      {formatTokenStatusVi(tok.status)}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between gap-2 font-mono-tabular text-xs">
+                    <span className="text-[#8FA9A0]">{formatPrice(tok.priceUsd)}</span>
+                    <span className={chg >= 0 ? 'text-[#39DEA2]' : 'text-[#EF6682]'}>
+                      {chg >= 0 ? '+' : ''}
+                      {chg.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between font-mono-tabular text-[10px] text-[#8FA9A0]">
+                    <span>{tok.mintAddress.slice(0, 4)}..{tok.mintAddress.slice(-3)}</span>
+                    <span>{tok.dexId}</span>
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
 
         {/* CENTRAL FLOW DIAGRAM */}
@@ -394,12 +425,14 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
                 KIỂM TOÁN LP
               </div>
               <div className="mt-0.5 font-mono-tabular text-[11px] text-[#E6F2ED]">
-                {selectedToken?.status === 'FILTERED'
+                {!selectedToken
+                  ? 'CHỜ QUÉT THỊ TRƯỜNG'
+                  : selectedToken.status === 'FILTERED'
                   ? `ĐÃ LỌC ${selectedToken.symbol}`
-                  : `ĐẠT ${selectedToken?.symbol ?? '$CLAUDIA'}`}
+                  : `ĐẠT ${selectedToken.symbol}`}
               </div>
               <div className="text-[10px] text-[#8FA9A0] max-w-[200px] truncate">
-                {selectedToken?.reason ?? 'Đã kiểm tra Mint & Freeze'}
+                {selectedToken?.reason ?? 'Chưa có token được chọn'}
               </div>
             </div>
 
@@ -538,7 +571,7 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
                     </span>
                   </div>
                   <div className="font-mono-tabular text-[10px] text-[#8FA9A0]">
-                    Mint: {selectedToken?.mintAddress ?? activeTrade?.mintAddress}
+                    Mint: {selectedToken?.mintAddress ?? activeTrade?.mintAddress ?? '—'}
                   </div>
                 </div>
               </div>
@@ -562,7 +595,9 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
                   <span className="text-[#39DEA2]">
                     {activeTrade?.exitPriceSimUsd
                       ? `$${formatPrice(activeTrade.exitPriceSimUsd)}`
-                      : 'vị thế đang mở'}
+                      : openTradeForSelected
+                      ? 'vị thế đang mở'
+                      : 'chưa vào lệnh'}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -575,11 +610,13 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
                 <div className="flex justify-between">
                   <span className="text-[#8FA9A0]">quy mô / trượt giá + phí</span>
                   <span className="text-[#E6F2ED]">
-                    {activeTrade?.equityPct ?? 4}% (${activeTrade?.equityAllocatedUsd ?? 0}) · 0.5%
+                    {activeTrade
+                      ? `${activeTrade.equityPct}% ($${activeTrade.equityAllocatedUsd}) · 0.5%`
+                      : `4% ($${((stats.paperBalanceUsd * 4) / 100).toFixed(2)} dự kiến) · 0.5%`}
                   </span>
                 </div>
                 <div className="pt-1 text-[11px] text-[#FF9B45]">
-                  lý do: <span className="text-[#E6F2ED]">{selectedToken?.reason ?? activeTrade?.reason}</span>
+                  lý do: <span className="text-[#E6F2ED]">{selectedToken?.reason ?? activeTrade?.reason ?? 'Chờ tín hiệu từ Launch Radar'}</span>
                 </div>
               </div>
 
@@ -589,8 +626,8 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
                   <path d={sparkPath} fill="none" stroke="#39DEA2" strokeWidth="2.2" strokeLinecap="round" />
                 </svg>
                 <div className="mt-1 flex justify-between font-mono-tabular text-[10px] text-[#8FA9A0]">
-                  <span>curve {selectedToken?.bondingCurvePct ?? 98}%</span>
-                  <span>{(selectedToken?.holdersCount ?? 1599).toLocaleString()} ví giữ</span>
+                  <span>curve {selectedToken?.bondingCurvePct ?? 0}%</span>
+                  <span>{(selectedToken?.holdersCount ?? 0).toLocaleString()} ví giữ</span>
                 </div>
               </div>
             </div>
@@ -602,34 +639,36 @@ export const LiveFlowWorkspace: React.FC<LiveFlowWorkspaceProps> = ({
               {!openTradeForSelected ? (
                 <button
                   type="button"
-                  disabled={simBusy || !selectedToken || selectedToken.status === 'FILTERED'}
+                  disabled={
+                    simBusy ||
+                    snapshot.dailyDrawdownGuard.isHalted ||
+                    !selectedToken ||
+                    selectedToken.status === 'FILTERED'
+                  }
                   onClick={() => selectedToken && onSimulatePaper(selectedToken.mintAddress, 'OPEN_SIM')}
                   className="inline-flex items-center gap-1.5 rounded-md border border-[#39DEA2]/60 bg-[#39DEA2]/15 px-2.5 py-1.5 font-mono-tabular text-xs font-semibold text-[#39DEA2] transition-colors hover:bg-[#39DEA2]/25 disabled:opacity-40 cursor-pointer"
+                  title={
+                    snapshot.dailyDrawdownGuard.isHalted
+                      ? 'Đã khóa vào lệnh mới do chạm giới hạn Maximum Daily Drawdown'
+                      : 'Mở lệnh mô phỏng Paper Trading 4%'
+                  }
                 >
                   <PlayCircle className="h-3.5 w-3.5" />
-                  MUA MÔ PHỎNG 4%
+                  {snapshot.dailyDrawdownGuard.isHalted
+                    ? 'ĐÃ KHÓA (DRAWDOWN HALT)'
+                    : 'MUA MÔ PHỎNG 4%'}
                 </button>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={simBusy}
-                    onClick={() => onSimulatePaper(selectedToken.mintAddress, 'CLOSE_SIM', 1.78)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#EAC64D]/60 bg-[#EAC64D]/15 px-2.5 py-1.5 font-mono-tabular text-xs font-semibold text-[#EAC64D] transition-colors hover:bg-[#EAC64D]/25 disabled:opacity-40 cursor-pointer"
-                  >
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    CHỐT LỜI (MÔ PHỎNG) 1.78×
-                  </button>
-                  <button
-                    type="button"
-                    disabled={simBusy}
-                    onClick={() => onSimulatePaper(selectedToken.mintAddress, 'CLOSE_SIM', 0.88)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[#EF6682]/60 bg-[#EF6682]/15 px-2.5 py-1.5 font-mono-tabular text-xs font-semibold text-[#EF6682] transition-colors hover:bg-[#EF6682]/25 disabled:opacity-40 cursor-pointer"
-                  >
-                    <ShieldAlert className="h-3.5 w-3.5" />
-                    CẮT LỖ (MÔ PHỎNG) -12%
-                  </button>
-                </>
+                <button
+                  type="button"
+                  disabled={simBusy || !selectedToken}
+                  onClick={() => selectedToken && onSimulatePaper(selectedToken.mintAddress, 'CLOSE_SIM')}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[#EAC64D]/60 bg-[#EAC64D]/15 px-2.5 py-1.5 font-mono-tabular text-xs font-semibold text-[#EAC64D] transition-colors hover:bg-[#EAC64D]/25 disabled:opacity-40 cursor-pointer"
+                  title="Đóng lệnh theo giá DexScreener trực tiếp và trượt giá thực tế"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  ĐÓNG LỆNH THEO GIÁ THỊ TRƯỜNG
+                </button>
               )}
               {selectedToken && (
                 <button

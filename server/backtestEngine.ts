@@ -171,6 +171,8 @@ export function runBacktestOnDataset(params: {
     const prev3 = candles[i - 3];
     const bar = candles[i];
 
+    let enteredThisBar = false;
+
     if (!inPosition) {
       // Entry signal based strictly on completed prior bars (momentum + volume expansion)
       const avgPriorVol = (prev1.volume + prev2.volume + prev3.volume) / 3;
@@ -179,41 +181,66 @@ export function runBacktestOnDataset(params: {
 
       if (momentumUp && volExpansion) {
         inPosition = true;
+        enteredThisBar = true;
         entryPrice = bar.open * (1 + slippagePct / 100);
         peakPriceSinceEntry = entryPrice;
         allocatedUsd = equity * (sizePct / 100);
         entryTs = bar.ts;
       }
-    } else {
-      // Evaluate Stops & Take Profit conservatively within current bar
+    }
+
+    if (inPosition) {
+      // Evaluate Stops & Take Profit conservatively within the same bar (including entry bar)
       const hardStopPrice = entryPrice * (1 - stopLossPct / 100);
       const tpPrice = entryPrice * takeProfitX;
-      if (bar.high > peakPriceSinceEntry) {
-        peakPriceSinceEntry = bar.high;
-      }
-      const trailingStopPrice = peakPriceSinceEntry * (1 - trailingStopPct / 100);
+      const priorTrailingStop =
+        !enteredThisBar && peakPriceSinceEntry > entryPrice * 1.08
+          ? peakPriceSinceEntry * (1 - trailingStopPct / 100)
+          : 0;
 
       let exitPrice: number | null = null;
       let reason = '';
 
-      if (bar.low <= hardStopPrice) {
-        exitPrice = hardStopPrice * (1 - slippagePct / 100);
-        reason = `Hard Stop -${stopLossPct}%`;
+      if (!enteredThisBar && bar.open <= hardStopPrice) {
+        // Gap down past hard stop at candle open: cannot fill at optimistic hardStopPrice
+        exitPrice = bar.open * (1 - slippagePct / 100);
+        reason = `Hard Stop Gap -${stopLossPct}%`;
+      } else if (priorTrailingStop > 0 && bar.open <= priorTrailingStop) {
+        // Gap down past prior trailing stop at candle open
+        exitPrice = bar.open * (1 - slippagePct / 100);
+        reason = `Trailing Stop Gap -${trailingStopPct}%`;
+      } else if (bar.low <= hardStopPrice) {
+        // Intraday hard stop checked conservatively before TP/trailing peak
+        exitPrice = Math.min(hardStopPrice, bar.open) * (1 - slippagePct / 100);
+        reason = enteredThisBar ? `Hard Stop Entry Bar -${stopLossPct}%` : `Hard Stop -${stopLossPct}%`;
+      } else if (priorTrailingStop > 0 && bar.low <= priorTrailingStop) {
+        exitPrice = Math.min(priorTrailingStop, bar.open) * (1 - slippagePct / 100);
+        reason = `Trailing Stop -${trailingStopPct}%`;
       } else if (bar.high >= tpPrice) {
+        // Conservative TP fill at target (never optimistic gap-up above target)
         exitPrice = tpPrice * (1 - slippagePct / 100);
         reason = `Profit Taker ${takeProfitX}x`;
-      } else if (peakPriceSinceEntry > entryPrice * 1.08 && bar.low <= trailingStopPrice) {
-        exitPrice = trailingStopPrice * (1 - slippagePct / 100);
-        reason = `Trailing Stop -${trailingStopPct}%`;
-      } else if (i === candles.length - 1) {
-        exitPrice = bar.close * (1 - slippagePct / 100);
-        reason = 'End of historical dataset';
+      } else {
+        if (bar.high > peakPriceSinceEntry) {
+          peakPriceSinceEntry = bar.high;
+        }
+        const updatedTrailingStop = peakPriceSinceEntry * (1 - trailingStopPct / 100);
+        if (peakPriceSinceEntry > entryPrice * 1.08 && bar.close <= updatedTrailingStop) {
+          // Price peaked during bar and closed below trailing stop: pessimistic close fill
+          exitPrice = Math.min(updatedTrailingStop, bar.close) * (1 - slippagePct / 100);
+          reason = `Trailing Stop -${trailingStopPct}%`;
+        } else if (i === candles.length - 1) {
+          exitPrice = bar.close * (1 - slippagePct / 100);
+          reason = 'End of historical dataset';
+        }
       }
 
       if (exitPrice !== null) {
-        const grossMult = exitPrice / entryPrice;
+        const safeExitPrice = Math.max(1e-12, exitPrice);
+        const grossMult = safeExitPrice / entryPrice;
         const feesUsd = allocatedUsd * (feePct / 100) * 2;
-        const pnlUsd = Number((allocatedUsd * (grossMult - 1) - feesUsd).toFixed(4));
+        const rawPnl = allocatedUsd * (grossMult - 1) - feesUsd;
+        const pnlUsd = Number(Math.max(-allocatedUsd, rawPnl).toFixed(4));
         equity = Number(Math.max(0, equity + pnlUsd).toFixed(4));
 
         if (equity > peakEquity) peakEquity = equity;
@@ -224,7 +251,7 @@ export function runBacktestOnDataset(params: {
           entryTime: new Date(entryTs * 1000).toISOString(),
           exitTime: new Date(bar.ts * 1000).toISOString(),
           entryPrice: Number(entryPrice.toFixed(8)),
-          exitPrice: Number(exitPrice.toFixed(8)),
+          exitPrice: Number(safeExitPrice.toFixed(8)),
           multiplier: Number(grossMult.toFixed(3)),
           pnlUsd: Number(pnlUsd.toFixed(2)),
           reason,
@@ -233,6 +260,29 @@ export function runBacktestOnDataset(params: {
         inPosition = false;
       }
     }
+  }
+
+  // Failsafe: guarantee no open trade remains unclosed after the final candle
+  if (inPosition && candles.length > 0) {
+    const lastBar = candles[candles.length - 1];
+    const safeExitPrice = Math.max(1e-12, lastBar.close * (1 - slippagePct / 100));
+    const grossMult = safeExitPrice / entryPrice;
+    const feesUsd = allocatedUsd * (feePct / 100) * 2;
+    const pnlUsd = Number(Math.max(-allocatedUsd, allocatedUsd * (grossMult - 1) - feesUsd).toFixed(4));
+    equity = Number(Math.max(0, equity + pnlUsd).toFixed(4));
+    if (equity > peakEquity) peakEquity = equity;
+    const dd = peakEquity > 0 ? ((peakEquity - equity) / peakEquity) * 100 : 0;
+    if (dd > maxDrawdownPct) maxDrawdownPct = dd;
+    trades.push({
+      entryTime: new Date(entryTs * 1000).toISOString(),
+      exitTime: new Date(lastBar.ts * 1000).toISOString(),
+      entryPrice: Number(entryPrice.toFixed(8)),
+      exitPrice: Number(safeExitPrice.toFixed(8)),
+      multiplier: Number(grossMult.toFixed(3)),
+      pnlUsd: Number(pnlUsd.toFixed(2)),
+      reason: 'End of historical dataset',
+    });
+    inPosition = false;
   }
 
   const wins = trades.filter((t) => t.pnlUsd > 0).length;

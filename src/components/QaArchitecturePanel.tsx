@@ -6,6 +6,7 @@ import {
   HardDrive,
   ShieldCheck,
 } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 import type { TerminalSnapshot } from '../types/terminal';
 
 interface QaArchitecturePanelProps {
@@ -18,7 +19,7 @@ const ANALYSIS_MATRIX = [
     stt: 1,
     screen: 'Thanh tiêu đề & Chỉ số KPI',
     module: 'HeaderBar',
-    fn: 'Hiển thị trạng thái, thời gian chạy, giá SOL, độ trễ RPC, Số dư ảo & Ví Phantom Chỉ đọc tách biệt',
+    fn: 'Hiển thị trạng thái, thời gian chạy, giá SOL, độ trễ RPC, Số dư ảo & Ví Phantom (Non-Custodial / Watch-Only) tách biệt',
     input: 'SQLite SystemSettings + Solana RPC getSlot + DexScreener SOL',
     output: 'Số dư ảo ($), Lệnh dương/âm, kết nối Phantom độc lập',
     level: 'Quan sát trực tiếp + API thật',
@@ -52,11 +53,11 @@ const ANALYSIS_MATRIX = [
   },
   {
     stt: 5,
-    screen: 'Phantom & Solana RPC',
-    module: 'PhantomSolanaPanel + PhantomPairMobilePage',
-    fn: 'Kết nối Phantom Extension, mã QR di động dùng 1 lần (5 phút), đọc SOL & SPL/Token-2022',
-    input: 'Địa chỉ Base58 công khai -> Solana Mainnet JSON-RPC',
-    output: 'Số dư thực tế Chỉ đọc (tách biệt hoàn toàn với vốn mô phỏng)',
+    screen: 'Phantom & Jupiter DEX',
+    module: 'UnifiedPhantomDexWorkspace + PhantomPairMobilePage',
+    fn: 'Kết nối Phantom Extension (Non-Custodial ký swap/transfer trên ví người dùng), mã QR di động dùng 1 lần (32-hex, 5 phút), đọc SOL & SPL/Token-2022',
+    input: 'Địa chỉ Base58 công khai + Báo giá Jupiter v1 -> Solana Mainnet JSON-RPC',
+    output: 'Số dư thực tế & Giao dịch ký trực tiếp trên Phantom (tách biệt vốn mô phỏng)',
     level: 'Bổ sung theo đặc tả Phần 9 & 10',
   },
   {
@@ -81,7 +82,7 @@ export const QaArchitecturePanel: React.FC<QaArchitecturePanelProps> = ({
     setBusy(true);
     setBackupMsg(null);
     try {
-      const res = await fetch('/api/backup/create', { method: 'POST' });
+      const res = await apiFetch('/api/backup/create', { method: 'POST' });
       const data = (await res.json()) as {
         ok?: boolean;
         fileName?: string;
@@ -121,6 +122,10 @@ export const QaArchitecturePanel: React.FC<QaArchitecturePanelProps> = ({
             <li className="flex items-center gap-2">
               <CheckCircle2 className="h-3.5 w-3.5 text-[#39DEA2] shrink-0" />
               Market Scanner tự động vẫn giữ chế độ Chỉ đọc, chặn mọi payload chứa trường giao dịch thực thi trái phép.
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#39DEA2] shrink-0" />
+              Cổng xác thực Bearer Token bắt buộc (scrypt + timingSafeEqual) bảo vệ toàn bộ API và chống tự ý sửa lãi/lỗ mô phỏng từ phía client.
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="h-3.5 w-3.5 text-[#39DEA2] shrink-0" />

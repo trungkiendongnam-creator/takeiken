@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Play,
 } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 import type { BacktestSessionRecord, TerminalSnapshot } from '../types/terminal';
 
 interface BacktestPanelProps {
@@ -23,8 +24,8 @@ const PRESET_SOLANA_POOLS = [
     address: 'EP2ib6dYdEeqD8MfE2ezHCxX3kP3K2eLKkirfPm5eyMx',
   },
   {
-    label: 'BONK / SOL (Raydium Mainnet)',
-    address: '8QaXeHBrShJTdtN1rWHbp3pH9vS9z1Q9F1xL7r4Q9xN1',
+    label: 'BONK / SOL (Orca Mainnet)',
+    address: '5zpyutJu9ee6jFymDGoK7F6S5Kczqtc9FomP3ueKuyA9',
   },
 ];
 
@@ -50,12 +51,24 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({
     snapshot.backtestSessions[0] ?? null
   );
 
+  useEffect(() => {
+    if (!selectedDatasetId && snapshot.backtestDatasets.length > 0) {
+      setSelectedDatasetId(snapshot.backtestDatasets[0].id);
+    }
+  }, [selectedDatasetId, snapshot.backtestDatasets]);
+
+  useEffect(() => {
+    if (!activeSession && snapshot.backtestSessions.length > 0) {
+      setActiveSession(snapshot.backtestSessions[0]);
+    }
+  }, [activeSession, snapshot.backtestSessions]);
+
   const handleFetchDataset = async () => {
     setBusy(true);
     setErrorMsg(null);
     setInfoMsg(null);
     try {
-      const res = await fetch('/api/backtest/fetch-dataset', {
+      const res = await apiFetch('/api/backtest/fetch-dataset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ poolAddress: poolAddress.trim(), timeframe, limit: 120 }),
@@ -90,7 +103,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({
     setErrorMsg(null);
     setInfoMsg(null);
     try {
-      const res = await fetch('/api/backtest/run', {
+      const res = await apiFetch('/api/backtest/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -125,17 +138,25 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({
     }
   };
 
-  const parsedTrades = activeSession
-    ? (JSON.parse(activeSession.tradesJson) as Array<{
-        entryTime: string;
-        exitTime: string;
-        entryPrice: number;
-        exitPrice: number;
-        multiplier: number;
-        pnlUsd: number;
-        reason: string;
-      }>)
-    : [];
+  const parsedTrades = useMemo(() => {
+    if (!activeSession?.tradesJson) return [];
+    try {
+      const parsed = JSON.parse(activeSession.tradesJson) as unknown;
+      return Array.isArray(parsed)
+        ? (parsed as Array<{
+            entryTime: string;
+            exitTime: string;
+            entryPrice: number;
+            exitPrice: number;
+            multiplier: number;
+            pnlUsd: number;
+            reason: string;
+          }>)
+        : [];
+    } catch {
+      return [];
+    }
+  }, [activeSession]);
 
   return (
     <div className="space-y-4 p-4">

@@ -11,6 +11,7 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 import type { TerminalSnapshot } from '../types/terminal';
 import { PhantomTransferPanel } from './PhantomTransferPanel';
 
@@ -54,13 +55,13 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
     if (!qrSession || qrSession.status !== 'PENDING') return;
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/wallet/qr-session/${qrSession.code}`);
+        const res = await apiFetch(`/api/wallet/qr-session/${qrSession.code}`);
         if (!res.ok) return;
         const data = (await res.json()) as { status: string; publicAddress?: string | null };
         if (data.status === 'CONFIRMED') {
           setQrSession((prev) => (prev ? { ...prev, status: 'CONFIRMED' } : null));
-          setInfoMsg(`Đã ghép nối ví di động ${data.publicAddress ?? ''} ở chế độ CHỈ ĐỌC.`);
-          const stRes = await fetch('/api/state');
+          setInfoMsg(`Đã ghép nối ví di động ${data.publicAddress ?? ''} ở chế độ CHỈ ĐỌC ĐỊA CHỈ.`);
+          const stRes = await apiFetch('/api/state');
           if (stRes.ok) onRefreshState((await stRes.json()) as TerminalSnapshot);
         } else if (data.status === 'EXPIRED') {
           setQrSession((prev) => (prev ? { ...prev, status: 'EXPIRED' } : null));
@@ -81,7 +82,7 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
     setErrorMsg(null);
     setInfoMsg(null);
     try {
-      const res = await fetch('/api/wallet/connect', {
+      const res = await apiFetch('/api/wallet/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,11 +93,15 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; snapshot?: TerminalSnapshot };
       if (!res.ok || !data.ok || !data.snapshot) {
-        throw new Error(data.error || 'Không thể kết nối địa chỉ ví ở chế độ Chỉ đọc');
+        throw new Error(data.error || 'Không thể kết nối địa chỉ ví');
       }
       onRefreshState(data.snapshot);
       setManualAddress('');
-      setInfoMsg('Đã kết nối ở chế độ CHỈ ĐỌC tuyệt đối. Số dư được đồng bộ từ Solana Mainnet.');
+      setInfoMsg(
+        method === 'PHANTOM_EXTENSION'
+          ? 'Đã kết nối Phantom Non-Custodial (Ký xác nhận giao dịch trực tiếp qua Phantom). Số dư được đồng bộ từ Solana Mainnet.'
+          : 'Đã kết nối địa chỉ công khai ở chế độ CHỈ ĐỌC ĐỊA CHỈ (Watch-Only). Số dư được đồng bộ từ Solana Mainnet.'
+      );
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Lỗi kết nối ví');
     } finally {
@@ -129,7 +134,7 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
     setErrorMsg(null);
     setInfoMsg(null);
     try {
-      const res = await fetch('/api/wallet/qr-session', { method: 'POST' });
+      const res = await apiFetch('/api/wallet/qr-session', { method: 'POST' });
       const data = (await res.json()) as {
         ok: boolean;
         code: string;
@@ -157,7 +162,7 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
     setBusy(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/wallet/sync', { method: 'POST' });
+      const res = await apiFetch('/api/wallet/sync', { method: 'POST' });
       const data = (await res.json()) as { ok?: boolean; error?: string; snapshot?: TerminalSnapshot };
       if (!res.ok || !data.snapshot) throw new Error(data.error || 'Đồng bộ thất bại');
       onRefreshState(data.snapshot);
@@ -176,10 +181,10 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
       if (provider?.disconnect) {
         await provider.disconnect().catch(() => {});
       }
-      const res = await fetch('/api/wallet/disconnect', { method: 'POST' });
+      const res = await apiFetch('/api/wallet/disconnect', { method: 'POST' });
       const data = (await res.json()) as { snapshot?: TerminalSnapshot };
       if (data.snapshot) onRefreshState(data.snapshot);
-      setInfoMsg('Đã ngắt kết nối ví Chỉ đọc.');
+      setInfoMsg('Đã ngắt kết nối ví.');
     } finally {
       setBusy(false);
     }
@@ -195,10 +200,10 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#E6F2ED]">
-                Phantom Wallet & Solana Mainnet — Chế độ READ-ONLY tuyệt đối
+                Phantom Wallet & Solana Mainnet — Kiến trúc Non-Custodial (Ký trực tiếp trên Phantom)
               </h2>
               <p className="mt-0.5 text-xs text-[#8FA9A0]">
-                Chỉ đọc Public Address, số dư SOL và SPL / Token-2022 accounts. Không ký thông điệp, không ký/gửi giao dịch, không lưu Seed Phrase hay Private Key. Số dư Phantom tách biệt hoàn toàn với vốn Paper Trading.
+                Backend chỉ đọc Public Address, số dư SOL/SPL và tạo giao dịch chưa ký. Khi hoán đổi Jupiter DEX hoặc chuyển tiền, mọi chữ ký được xác nhận trực tiếp trên Ví Phantom của bạn — tuyệt đối không lưu Seed Phrase hay Private Key.
               </p>
             </div>
           </div>
@@ -288,14 +293,16 @@ export const PhantomSolanaPanel: React.FC<PhantomSolanaPanelProps> = ({
                 <p className="text-[11px] text-[#8FA9A0]">
                   Mở bằng Phantom Mobile hoặc trình duyệt điện thoại. Mã QR hết hạn sau 5 phút và chỉ dùng 1 lần.
                 </p>
-                <a
-                  href={qrSession.pairUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-block font-mono-tabular text-[11px] text-[#49A9ED] underline break-all"
-                >
-                  {qrSession.pairUrl}
-                </a>
+                {/^https?:\/\//i.test(qrSession.pairUrl) && (
+                  <a
+                    href={qrSession.pairUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block font-mono-tabular text-[11px] text-[#49A9ED] underline break-all"
+                  >
+                    {qrSession.pairUrl}
+                  </a>
+                )}
               </div>
             )}
           </div>

@@ -2,13 +2,18 @@ import {
   appendLog,
   computeOvernightRecap,
   db,
+  evaluateAndEnforceDailyDrawdownGuard,
   evaluateVolatilityAlerts,
   getOvernightStrategyConfig,
   getSetting,
   setSetting,
   updateAgentState,
 } from './db.ts';
-import { fetchLiveSolanaDexPairs, fetchLiveSolPrice } from './dexConnector.ts';
+import {
+  fetchLiveSolanaDexPairs,
+  fetchLiveSolPrice,
+  fetchLiveTokenPriceUsd,
+} from './dexConnector.ts';
 import { auditMintAuthoritiesOnChain, getSolanaRpcHealth } from './solanaRpc.ts';
 
 export async function runLiveSolanaScanPipeline(): Promise<{
@@ -17,7 +22,31 @@ export async function runLiveSolanaScanPipeline(): Promise<{
   simulatedTradesCount: number;
   solPriceUsd: number;
   rpcLatencyMs: number | null;
+  halted?: boolean;
+  haltReason?: string | null;
 }> {
+  const preGuard = evaluateAndEnforceDailyDrawdownGuard();
+  if (preGuard.isHalted) {
+    appendLog({
+      agentId: 'stop_guard',
+      agentName: 'DAILY DRAWDOWN GUARD',
+      eventType: 'WARN',
+      message: 'Tạm dừng quét & giao dịch agent · Chạm giới hạn sụt giảm ngày',
+      reason: preGuard.haltReason ?? 'Tổng tài sản giảm dưới ngưỡng cho phép.',
+      resultBadge: 'HALTED',
+      isPositive: false,
+    });
+    return {
+      scannedCount: 0,
+      blockedCount: 0,
+      simulatedTradesCount: 0,
+      solPriceUsd: Number(getSetting('sol_price_usd', '0')),
+      rpcLatencyMs: Number(getSetting('rpc_latency_ms', '0')) || null,
+      halted: true,
+      haltReason: preGuard.haltReason,
+    };
+  }
+
   const [rpcHealth, solPrice, pairs] = await Promise.all([
     getSolanaRpcHealth(),
     fetchLiveSolPrice(),
@@ -53,7 +82,7 @@ export async function runLiveSolanaScanPipeline(): Promise<{
     };
   }
 
-  let checkedTotal = Number(getSetting('tokens_checked', '129'));
+  let checkedTotal = Number(getSetting('tokens_checked', '0'));
   let blockedTotal = Number(getSetting('blocked_count', '0'));
   let newBlocked = 0;
   let simCount = 0;
@@ -101,16 +130,17 @@ export async function runLiveSolanaScanPipeline(): Promise<{
       'market velocity window'
     );
 
-    // 04. LP AUDITOR (real Solana Mainnet RPC check + liquidity threshold)
+    // 04. LP AUDITOR (real Solana Mainnet RPC check + liquidity threshold, strict fail-closed)
     const rpcAudit = await auditMintAuthoritiesOnChain(pair.mintAddress);
     const minLiquidityOk = pair.liquidityUsd >= 15000;
-    const mintSafe = rpcAudit.mintAuthorityRevoked !== false;
-    const freezeSafe = rpcAudit.freezeAuthorityRevoked !== false;
+    const authorityVerified = rpcAudit.checked === true && rpcAudit.mintAuthorityRevoked !== null && rpcAudit.freezeAuthorityRevoked !== null;
+    const mintSafe = authorityVerified && rpcAudit.mintAuthorityRevoked === true;
+    const freezeSafe = authorityVerified && rpcAudit.freezeAuthorityRevoked === true;
     const passedAudit = minLiquidityOk && mintSafe && freezeSafe;
 
     let riskLevel: 'LOW RISK' | 'MEDIUM RISK' | 'HIGH RISK' | 'FILTERED' = 'MEDIUM RISK';
     let status: 'WATCHING' | 'PASSED' | 'FILTERED' = 'PASSED';
-    let auditReason = `LP $${Math.round(pair.liquidityUsd).toLocaleString()} · Mint ${rpcAudit.mintAuthorityRevoked === true ? 'revoked' : rpcAudit.mintAuthorityRevoked === false ? 'ACTIVE' : 'unknown'}`;
+    let auditReason = `LP $${Math.round(pair.liquidityUsd).toLocaleString()} · Mint & Freeze verified revoked`;
 
     if (!passedAudit) {
       riskLevel = 'FILTERED';
@@ -119,6 +149,8 @@ export async function runLiveSolanaScanPipeline(): Promise<{
       newBlocked += 1;
       auditReason = !minLiquidityOk
         ? `Blocked: Liquidity $${Math.round(pair.liquidityUsd)} < $15k min`
+        : !authorityVerified
+        ? `Blocked: Unverified Mint/Freeze Authority on-chain (${rpcAudit.error ?? 'RPC unavailable'})`
         : 'Blocked: Mint or Freeze Authority active on-chain';
 
       updateAgentState('lp_auditor', 'AUDIT', `blocked ${pair.symbol}`, auditReason);
@@ -180,7 +212,11 @@ export async function runLiveSolanaScanPipeline(): Promise<{
         pair_age_hours = excluded.pair_age_hours,
         fdv_usd = excluded.fdv_usd,
         risk_level = excluded.risk_level,
-        status = excluded.status,
+        status = CASE
+          WHEN EXISTS (SELECT 1 FROM PaperTrades WHERE mint_address = excluded.mint_address AND status = 'OPEN')
+          THEN 'OPEN'
+          ELSE excluded.status
+        END,
         source_timestamp = excluded.source_timestamp,
         reason = excluded.reason
     `).run(
@@ -216,7 +252,7 @@ export async function runLiveSolanaScanPipeline(): Promise<{
   }
 
   // 06. RISK SIZER update
-  const paperBal = Number(getSetting('paper_balance_usd', '94.35'));
+  const paperBal = Number(getSetting('paper_balance_usd', '50.00'));
   updateAgentState('risk_sizer', 'READY', `3% of $${paperBal.toFixed(2)} (sim)`, 'Paper virtual cap active');
 
   // 07-10 update
@@ -225,9 +261,10 @@ export async function runLiveSolanaScanPipeline(): Promise<{
 
   setSetting('tokens_checked', String(checkedTotal));
   setSetting('blocked_count', String(blockedTotal));
-  setSetting('total_launches_tracked', String(Number(getSetting('total_launches_tracked', '4353')) + candidates.length));
+  setSetting('total_launches_tracked', String(Number(getSetting('total_launches_tracked', '0')) + candidates.length));
   setSetting('latest_ticker', `LAUNCH RADAR · SCANNED ${candidates.length} LIVE SOLANA PAIRS`);
   evaluateVolatilityAlerts();
+  const postScanGuard = evaluateAndEnforceDailyDrawdownGuard();
 
   return {
     scannedCount: candidates.length,
@@ -235,26 +272,36 @@ export async function runLiveSolanaScanPipeline(): Promise<{
     simulatedTradesCount: simCount,
     solPriceUsd: solPrice.priceUsd,
     rpcLatencyMs: rpcHealth.latencyMs,
+    halted: postScanGuard.isHalted,
+    haltReason: postScanGuard.haltReason,
   };
 }
 
-export function executePaperSimulation(params: {
+export async function executePaperSimulation(params: {
   mintAddress: string;
   action: 'OPEN_SIM' | 'CLOSE_SIM';
   equityPct?: number;
-  simulatedMultiplier?: number;
-}): { ok: boolean; message: string; tradeId?: number } {
+  liveMarketPriceUsd?: number;
+  closeReasonPrefix?: string;
+}): Promise<{ ok: boolean; message: string; tradeId?: number }> {
   const token = db.prepare('SELECT * FROM TokenMetadata WHERE mint_address = ?').get(params.mintAddress) as Record<string, unknown> | undefined;
   if (!token) {
     return { ok: false, message: 'Không tìm thấy token trong cơ sở dữ liệu cục bộ.' };
   }
 
   const symbol = String(token.symbol);
-  const currentBalance = Number(getSetting('paper_balance_usd', '94.35'));
+  const currentBalance = Number(getSetting('paper_balance_usd', '50.00'));
   const nowIso = new Date().toISOString();
   const timeShort = nowIso.slice(11, 16);
 
   if (params.action === 'OPEN_SIM') {
+    const guard = evaluateAndEnforceDailyDrawdownGuard();
+    if (guard.isHalted) {
+      return {
+        ok: false,
+        message: `ĐÃ NGẮT MẠCH GIAO DỊCH (Maximum Daily Drawdown): ${guard.haltReason ?? 'Tổng tài sản giảm dưới ngưỡng cho phép.'}`,
+      };
+    }
     if (String(token.status) === 'FILTERED') {
       return { ok: false, message: `LP Auditor đã chặn ${symbol}. Không thể mở lệnh mô phỏng cho token bị lọc.` };
     }
@@ -328,17 +375,56 @@ export function executePaperSimulation(params: {
     return { ok: false, message: `Không tìm thấy lệnh mô phỏng đang mở cho ${symbol}.` };
   }
 
-  const mult = Math.max(0.5, Math.min(20, params.simulatedMultiplier ?? (Number(token.price_change_5m) >= 0 ? 1.45 : 0.88)));
-  const entrySim = Number(openTrade.entry_price_sim_usd);
-  const exitSim = Number((entrySim * mult).toFixed(9));
+  const liveQuote =
+    params.liveMarketPriceUsd && Number.isFinite(params.liveMarketPriceUsd) && params.liveMarketPriceUsd > 0
+      ? { priceUsd: params.liveMarketPriceUsd, source: 'DexScreener Solana Live' }
+      : await fetchLiveTokenPriceUsd(params.mintAddress);
+
+  if (liveQuote && liveQuote.priceUsd > 0) {
+    db.prepare('UPDATE TokenMetadata SET price_usd = ?, source_timestamp = ? WHERE mint_address = ?').run(
+      liveQuote.priceUsd,
+      nowIso,
+      params.mintAddress
+    );
+  }
+
+  const marketPriceUsd = liveQuote?.priceUsd && liveQuote.priceUsd > 0
+    ? liveQuote.priceUsd
+    : Number(token.price_usd);
+
+  if (!Number.isFinite(marketPriceUsd) || marketPriceUsd <= 0) {
+    return {
+      ok: false,
+      message: `Không lấy được giá thị trường hiện tại cho ${symbol} để đóng lệnh mô phỏng.`,
+    };
+  }
+
+  const sellSlippagePct = Number.isFinite(Number(openTrade.slippage_pct))
+    ? Number(openTrade.slippage_pct)
+    : 0.5;
+  const entrySim = Math.max(1e-12, Number(openTrade.entry_price_sim_usd));
+  const exitSim = Number(Math.max(0, marketPriceUsd * (1 - sellSlippagePct / 100)).toFixed(9));
+  const mult = exitSim / entrySim;
   const allocated = Number(openTrade.equity_allocated_usd);
   const feeSim = Number(openTrade.fee_sim_usd) * 2;
-  const pnlUsd = Number((allocated * (mult - 1) - feeSim).toFixed(2));
+  const pnlUsd = Number(Math.max(-allocated, allocated * (mult - 1) - feeSim).toFixed(2));
   const newBalance = Number(Math.max(0, currentBalance + pnlUsd).toFixed(2));
   const isWin = pnlUsd >= 0;
-  const exitReason = isWin ? `Profit Taker ladder ${mult.toFixed(2)}x (sim)` : `Stop Guard triggered ${((mult - 1) * 100).toFixed(1)}% (sim)`;
+  const priceSourceNote = liveQuote ? liveQuote.source : 'Giá quét gần nhất';
+  const reasonPrefix = params.closeReasonPrefix ? `${params.closeReasonPrefix} · ` : '';
+  const exitReason = isWin
+    ? `${reasonPrefix}Đóng theo giá thị trường (${priceSourceNote}) ${mult.toFixed(2)}x (trượt ${sellSlippagePct}%)`
+    : `${reasonPrefix}Đóng theo giá thị trường (${priceSourceNote}) ${((mult - 1) * 100).toFixed(1)}% (${mult.toFixed(2)}x)`;
 
-  const existingSpark = JSON.parse(String(openTrade.sparkline_json)) as number[];
+  let existingSpark: number[] = [1];
+  try {
+    const parsed = JSON.parse(String(openTrade.sparkline_json)) as unknown;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      existingSpark = parsed.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+    }
+  } catch {
+    existingSpark = [1];
+  }
   const nextSpark = [...existingSpark, Number(((1 + mult) / 2).toFixed(2)), Number(mult.toFixed(2))];
 
   db.prepare(`
@@ -347,7 +433,13 @@ export function executePaperSimulation(params: {
     WHERE id = ?
   `).run(exitSim, pnlUsd, Number(mult.toFixed(2)), exitReason, JSON.stringify(nextSpark), nowIso, Number(openTrade.id));
 
-  db.prepare(`UPDATE TokenMetadata SET status = 'CLOSED' WHERE mint_address = ?`).run(params.mintAddress);
+  const remainingOpen = db
+    .prepare(`SELECT COUNT(*) AS cnt FROM PaperTrades WHERE mint_address = ? AND status = 'OPEN'`)
+    .get(params.mintAddress) as { cnt: number };
+  db.prepare(`UPDATE TokenMetadata SET status = ? WHERE mint_address = ?`).run(
+    remainingOpen.cnt > 0 ? 'OPEN' : 'CLOSED',
+    params.mintAddress
+  );
   setSetting('paper_balance_usd', newBalance.toFixed(2));
 
   db.prepare('INSERT INTO EquityHistory (timestamp, label, balance_usd, pnl_delta_usd, note) VALUES (?, ?, ?, ?, ?)').run(
@@ -390,6 +482,9 @@ export function executePaperSimulation(params: {
 
   updateAgentState('sniper', 'LIVE', 'flat · waiting', 'Paper-only executor');
   updateAgentState('journal', 'ACTIVE', `closed (sim) ${symbol}`, 'SQLite persisted');
+
+  // Re-evaluate Maximum Daily Drawdown immediately after realizing PnL
+  evaluateAndEnforceDailyDrawdownGuard();
 
   return { ok: true, message: `Đã đóng lệnh mô phỏng cho ${symbol}: ${isWin ? '+' : '-'}$${Math.abs(pnlUsd).toFixed(2)}`, tradeId: Number(openTrade.id) };
 }
@@ -449,22 +544,16 @@ export async function runOvernightStrategyCycle(options?: {
     });
   }
 
-  // 1. Check Daily Drawdown Limit (-30% from peak equity)
+  // 1. Check Maximum Daily Drawdown Limit
+  const preGuard = evaluateAndEnforceDailyDrawdownGuard();
   const recapBefore = computeOvernightRecap();
-  if (recapBefore.drawdownPaused) {
+  if (preGuard.isHalted || recapBefore.drawdownPaused) {
     setSetting('is_running', 'false');
-    appendLog({
-      agentId: 'stop_guard',
-      agentName: 'RUG / DRAWDOWN GUARD',
-      eventType: 'WARN',
-      message: `TẠM DỪNG PHIÊN ĐÊM · Sụt giảm -${recapBefore.drawdownFromPeakPct}% từ đỉnh`,
-      reason: `Chạm giới hạn sụt giảm ngày -${cfg.dailyDrawdownLimitPct}% ($${recapBefore.endBalanceUsd.toFixed(2)} vs đỉnh $${recapBefore.peakEquityUsd.toFixed(2)})`,
-      resultBadge: 'PAUSED -30%',
-      isPositive: false,
-    });
     return {
       ok: true,
-      summary: `Phiên đêm đã tạm dừng do chạm giới hạn sụt giảm -${cfg.dailyDrawdownLimitPct}% từ đỉnh.`,
+      summary:
+        preGuard.haltReason ??
+        `Phiên đêm đã tạm dừng do chạm giới hạn sụt giảm -${cfg.dailyDrawdownLimitPct}% từ đỉnh.`,
       scannedCount: 0,
       passedCount: 0,
       filteredCount: 0,
@@ -490,7 +579,7 @@ export async function runOvernightStrategyCycle(options?: {
     setSetting('sol_price_source', solPrice.source);
   }
 
-  // 3. Evaluate any OPEN simulated trades against 25m time stop or live market moves
+  // 3. Evaluate any OPEN simulated trades against 25m time stop or live market moves (NEVER mask true loss)
   let closedTradesCount = 0;
   const openRows = db.prepare(`SELECT * FROM PaperTrades WHERE status = 'OPEN' ORDER BY id ASC`).all() as Array<
     Record<string, unknown>
@@ -500,21 +589,54 @@ export async function runOvernightStrategyCycle(options?: {
     const ageMin = (Date.now() - openedMs) / 60000;
     const mint = String(tr.mint_address);
     const livePair = pairs.find((p) => p.mintAddress === mint);
+    const livePrice =
+      livePair && livePair.priceUsd > 0
+        ? livePair.priceUsd
+        : (await fetchLiveTokenPriceUsd(mint))?.priceUsd ?? 0;
 
     if (ageMin >= cfg.timeStopMinutes) {
-      executePaperSimulation({ mintAddress: mint, action: 'CLOSE_SIM', simulatedMultiplier: 0.94 });
-      closedTradesCount += 1;
-    } else if (livePair && livePair.priceUsd > 0) {
-      const entry = Number(tr.entry_price_sim_usd);
-      const ratio = livePair.priceUsd / Math.max(0.0000001, entry);
+      const closeRes = await executePaperSimulation({
+        mintAddress: mint,
+        action: 'CLOSE_SIM',
+        liveMarketPriceUsd: livePrice > 0 ? livePrice : undefined,
+        closeReasonPrefix: `Hết thời gian giữ (${cfg.timeStopMinutes} phút)`,
+      });
+      if (closeRes.ok) closedTradesCount += 1;
+    } else if (livePrice > 0) {
+      const entry = Math.max(1e-12, Number(tr.entry_price_sim_usd));
+      const ratio = livePrice / entry;
       if (ratio <= 1 - cfg.hardStopPct / 100) {
-        executePaperSimulation({ mintAddress: mint, action: 'CLOSE_SIM', simulatedMultiplier: 0.88 });
-        closedTradesCount += 1;
+        const closeRes = await executePaperSimulation({
+          mintAddress: mint,
+          action: 'CLOSE_SIM',
+          liveMarketPriceUsd: livePrice,
+          closeReasonPrefix: `Cắt lỗ cứng (-${cfg.hardStopPct}% kích hoạt tại ${((ratio - 1) * 100).toFixed(1)}%)`,
+        });
+        if (closeRes.ok) closedTradesCount += 1;
       } else if (ratio >= 2.0) {
-        executePaperSimulation({ mintAddress: mint, action: 'CLOSE_SIM', simulatedMultiplier: Number(ratio.toFixed(2)) });
-        closedTradesCount += 1;
+        const closeRes = await executePaperSimulation({
+          mintAddress: mint,
+          action: 'CLOSE_SIM',
+          liveMarketPriceUsd: livePrice,
+          closeReasonPrefix: `Chốt lời mục tiêu (>= 2.00x)`,
+        });
+        if (closeRes.ok) closedTradesCount += 1;
       }
     }
+  }
+
+  const postCloseGuard = evaluateAndEnforceDailyDrawdownGuard();
+  if (postCloseGuard.isHalted) {
+    return {
+      ok: true,
+      summary: postCloseGuard.haltReason ?? 'Phiên đêm tự động tạm dừng do chạm giới hạn Maximum Daily Drawdown sau khi đóng lệnh.',
+      scannedCount: 0,
+      passedCount: 0,
+      filteredCount: 0,
+      openedTradesCount: 0,
+      closedTradesCount,
+      drawdownPaused: true,
+    };
   }
 
   // 4. Evaluate Universe + 6 Overnight Agents on up to 6 live candidates
@@ -522,10 +644,16 @@ export async function runOvernightStrategyCycle(options?: {
   let filteredCount = 0;
   let openedTradesCount = 0;
 
-  const candidates = pairs.slice(0, 6);
+  const candidates = pairs.slice(0, 12);
   for (const pair of candidates) {
     const dexLower = pair.dexId.toLowerCase();
-    const dexOk = cfg.dexAllowlist.some((d) => dexLower.includes(d.toLowerCase().replace('.', '')));
+    const dexOk = cfg.dexAllowlist.some((d) => {
+      const normalized = d.toLowerCase().replace('.', '');
+      if (normalized === 'pumpfun') {
+        return dexLower.includes('pump');
+      }
+      return dexLower.includes(normalized);
+    });
     const ageOk = pair.pairAgeHours === null || pair.pairAgeHours <= cfg.maxPairAgeHours;
     const liqOk = pair.liquidityUsd >= cfg.minLiquidityUsd;
     const vol5mOk = pair.volume5mUsd >= cfg.minVol5mUsd;
@@ -551,8 +679,9 @@ export async function runOvernightStrategyCycle(options?: {
     }
 
     const rpcAudit = await auditMintAuthoritiesOnChain(pair.mintAddress);
-    const mintSafe = rpcAudit.mintAuthorityRevoked !== false;
-    const freezeSafe = rpcAudit.freezeAuthorityRevoked !== false;
+    const authorityVerified = rpcAudit.checked === true && rpcAudit.mintAuthorityRevoked !== null && rpcAudit.freezeAuthorityRevoked !== null;
+    const mintSafe = authorityVerified && rpcAudit.mintAuthorityRevoked === true;
+    const freezeSafe = authorityVerified && rpcAudit.freezeAuthorityRevoked === true;
     const rugCheckPass = mintSafe && freezeSafe && liqOk && holdersOk;
     const universeOk = dexOk && ageOk && liqOk && vol5mOk && holdersOk && noChaseOk;
     const signalsOk = signals.length >= cfg.minScannerSignals;
@@ -565,6 +694,7 @@ export async function runOvernightStrategyCycle(options?: {
     else if (!vol5mOk) filterReason = `FILTERED · Vol 5m $${Math.round(pair.volume5mUsd).toLocaleString()} < $25k`;
     else if (!holdersOk) filterReason = `FILTERED · ${estHolders} ví < 300 tối thiểu`;
     else if (!noChaseOk) filterReason = `FILTERED · Chống FOMO: tăng +${pair.priceChange1h.toFixed(0)}% (>300%) chưa điều chỉnh`;
+    else if (!authorityVerified) filterReason = `FILTERED · Không xác minh được quyền Mint/Freeze trên RPC (${rpcAudit.error ?? 'unverified'})`;
     else if (!mintSafe || !freezeSafe) filterReason = `FILTERED · Phát hiện Mint hoặc Freeze Authority còn mở`;
     else if (!signalsOk) filterReason = `FILTERED · Chỉ đạt ${signals.length}/2 tín hiệu SCANNER`;
     else filterReason = `PASS · ${signals.slice(0, 3).join(' · ')} · LP $${Math.round(pair.liquidityUsd / 1000)}k`;
@@ -596,7 +726,11 @@ export async function runOvernightStrategyCycle(options?: {
         buy_ratio_pct = excluded.buy_ratio_pct,
         pair_age_hours = excluded.pair_age_hours,
         risk_level = excluded.risk_level,
-        status = excluded.status,
+        status = CASE
+          WHEN EXISTS (SELECT 1 FROM PaperTrades WHERE mint_address = excluded.mint_address AND status = 'OPEN')
+          THEN 'OPEN'
+          ELSE excluded.status
+        END,
         source_timestamp = excluded.source_timestamp,
         reason = excluded.reason
     `).run(
@@ -652,7 +786,7 @@ export async function runOvernightStrategyCycle(options?: {
 
       if (!alreadyOpen && recapNow.openPositionsCount < cfg.maxOpenPositions && !recapNow.drawdownPaused) {
         const execPct = recapNow.effectivePositionPct;
-        const simRes = executePaperSimulation({
+        const simRes = await executePaperSimulation({
           mintAddress: pair.mintAddress,
           action: 'OPEN_SIM',
           equityPct: execPct,
@@ -675,30 +809,35 @@ export async function runOvernightStrategyCycle(options?: {
     }
   }
 
+  const postCycleGuard = evaluateAndEnforceDailyDrawdownGuard();
   const finalRecap = computeOvernightRecap();
-  updateAgentState('launch_radar', 'SCAN', `${candidates.length} cặp mới · ${passedCount} đạt`, `Vol5m>=$25k · LP>=$40k`);
-  updateAgentState('lp_auditor', 'AUDIT', `${passedCount} PASS · ${filteredCount} FILTERED`, `Mint/Freeze & No-Chase 300%`);
-  updateAgentState(
-    'risk_sizer',
-    finalRecap.sizeScaledDownHalf ? 'SCALED 50%' : 'READY',
-    `${finalRecap.effectivePositionPct}% vốn kép`,
-    `${finalRecap.openPositionsCount}/${cfg.maxOpenPositions} vị thế · DD -${finalRecap.drawdownFromPeakPct}%`
-  );
-  updateAgentState('sniper', 'LIVE', `${openedTradesCount} vào lệnh · ${closedTradesCount} đóng`, `Slippage max ${cfg.maxSlippagePct}%`);
-  updateAgentState('journal', 'ACTIVE', `${timeShort} · Đã ghi phiên đêm`, `Vốn $${finalRecap.endBalanceUsd.toFixed(2)}`);
+  if (!postCycleGuard.isHalted) {
+    updateAgentState('launch_radar', 'SCAN', `${candidates.length} cặp mới · ${passedCount} đạt`, `Vol5m>=$25k · LP>=$40k`);
+    updateAgentState('lp_auditor', 'AUDIT', `${passedCount} PASS · ${filteredCount} FILTERED`, `Mint/Freeze & No-Chase 300%`);
+    updateAgentState(
+      'risk_sizer',
+      finalRecap.sizeScaledDownHalf ? 'SCALED 50%' : 'READY',
+      `${finalRecap.effectivePositionPct}% vốn kép`,
+      `${finalRecap.openPositionsCount}/${cfg.maxOpenPositions} vị thế · DD -${finalRecap.drawdownFromPeakPct}%`
+    );
+    updateAgentState('sniper', 'LIVE', `${openedTradesCount} vào lệnh · ${closedTradesCount} đóng`, `Slippage max ${cfg.maxSlippagePct}%`);
+    updateAgentState('journal', 'ACTIVE', `${timeShort} · Đã ghi phiên đêm`, `Vốn $${finalRecap.endBalanceUsd.toFixed(2)}`);
+  }
 
-  setSetting('tokens_checked', String(Number(getSetting('tokens_checked', '129')) + candidates.length));
+  setSetting('tokens_checked', String(Number(getSetting('tokens_checked', '0')) + candidates.length));
   setSetting('blocked_count', String(Number(getSetting('blocked_count', '0')) + filteredCount));
   evaluateVolatilityAlerts();
 
   return {
     ok: true,
-    summary: `Chu kỳ Phiên Đêm: quét ${candidates.length} cặp, đạt chuẩn ${passedCount}, lọc ${filteredCount}, mở mô phỏng ${openedTradesCount} lệnh.`,
+    summary: postCycleGuard.isHalted
+      ? postCycleGuard.haltReason ?? 'Phiên đêm đã tự động tạm dừng do chạm giới hạn Maximum Daily Drawdown.'
+      : `Chu kỳ Phiên Đêm: quét ${candidates.length} cặp, đạt chuẩn ${passedCount}, lọc ${filteredCount}, mở mô phỏng ${openedTradesCount} lệnh.`,
     scannedCount: candidates.length,
     passedCount,
     filteredCount,
     openedTradesCount,
     closedTradesCount,
-    drawdownPaused: finalRecap.drawdownPaused,
+    drawdownPaused: finalRecap.drawdownPaused || postCycleGuard.isHalted,
   };
 }

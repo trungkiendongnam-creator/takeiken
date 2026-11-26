@@ -278,7 +278,11 @@ export async function buildJupiterSwapTransaction(params: {
     !params.quoteResponse ||
     typeof params.quoteResponse !== 'object' ||
     typeof params.quoteResponse.inAmount !== 'string' ||
-    typeof params.quoteResponse.outAmount !== 'string'
+    typeof params.quoteResponse.outAmount !== 'string' ||
+    typeof params.quoteResponse.inputMint !== 'string' ||
+    typeof params.quoteResponse.outputMint !== 'string' ||
+    !isValidSolanaBase58(params.quoteResponse.inputMint) ||
+    !isValidSolanaBase58(params.quoteResponse.outputMint)
   ) {
     throw new Error('Dữ liệu báo giá Jupiter không hợp lệ hoặc đã hết hạn. Vui lòng lấy báo giá lại.');
   }
@@ -332,15 +336,28 @@ export async function buildJupiterSwapTransaction(params: {
   throw new Error(lastError);
 }
 
+function validateSerializedTxBase64(txBase64: unknown, label: string): string {
+  if (typeof txBase64 !== 'string') {
+    throw new Error(`Thiếu dữ liệu giao dịch Base64 hợp lệ (${label}).`);
+  }
+  const clean = txBase64.trim();
+  if (clean.length < 80 || clean.length > 2800 || clean.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(clean)) {
+    throw new Error(`Định dạng giao dịch Base64 không hợp lệ (${label}).`);
+  }
+  const decoded = Buffer.from(clean, 'base64');
+  if (decoded.length < 64 || decoded.length > 2048) {
+    throw new Error(`Kích thước giao dịch vượt quá giới hạn Solana (${label}).`);
+  }
+  return clean;
+}
+
 export async function simulateSolanaTransaction(swapTransactionBase64: string): Promise<{
   ok: boolean;
   err: string | null;
   unitsConsumed: number | null;
   logs: string[];
 }> {
-  if (!swapTransactionBase64 || typeof swapTransactionBase64 !== 'string') {
-    throw new Error('Thiếu dữ liệu giao dịch Base64 để mô phỏng.');
-  }
+  const cleanTx = validateSerializedTxBase64(swapTransactionBase64, 'simulate');
 
   const res = await fetch(SOLANA_MAINNET_RPC, {
     method: 'POST',
@@ -350,7 +367,7 @@ export async function simulateSolanaTransaction(swapTransactionBase64: string): 
       id: 1,
       method: 'simulateTransaction',
       params: [
-        swapTransactionBase64,
+        cleanTx,
         {
           encoding: 'base64',
           sigVerify: false,
@@ -394,9 +411,7 @@ export async function simulateSolanaTransaction(swapTransactionBase64: string): 
 }
 
 export async function broadcastSignedSolanaTx(signedTxBase64: string): Promise<string> {
-  if (!signedTxBase64 || typeof signedTxBase64 !== 'string') {
-    throw new Error('Thiếu giao dịch đã ký hợp lệ.');
-  }
+  const cleanTx = validateSerializedTxBase64(signedTxBase64, 'broadcast');
   const res = await fetch(SOLANA_MAINNET_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -405,7 +420,7 @@ export async function broadcastSignedSolanaTx(signedTxBase64: string): Promise<s
       id: 1,
       method: 'sendTransaction',
       params: [
-        signedTxBase64,
+        cleanTx,
         {
           encoding: 'base64',
           skipPreflight: false,

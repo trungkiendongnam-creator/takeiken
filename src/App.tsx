@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AgentInspectorModal } from './components/AgentInspectorModal';
 import { AgentsSidebar } from './components/AgentsSidebar';
+import { AuthGate } from './components/AuthGate';
 import { BacktestPanel } from './components/BacktestPanel';
 import { HeaderBar, type WorkspaceTab } from './components/HeaderBar';
 import { LiveFlowWorkspace } from './components/LiveFlowWorkspace';
@@ -11,6 +12,7 @@ import {
   UnifiedPhantomDexWorkspace,
   type PhantomDexSubTab,
 } from './components/UnifiedPhantomDexWorkspace';
+import { apiFetch, setBearerToken, setUnauthorizedHandler } from './lib/apiClient';
 import type {
   AgentId,
   TerminalSnapshot,
@@ -20,27 +22,39 @@ import type {
 
 export default function App() {
   // Check if opened via Phantom Mobile QR Companion link (?phantomPair=CODE)
-  const pairCode = new URLSearchParams(window.location.search).get('phantomPair');
-  if (pairCode) {
-    return <PhantomPairMobilePage pairCode={pairCode} />;
+  const rawPairCode = new URLSearchParams(window.location.search).get('phantomPair')?.trim().toUpperCase() ?? '';
+  if (/^[A-F0-9]{32}$/.test(rawPairCode)) {
+    return <PhantomPairMobilePage pairCode={rawPairCode} />;
   }
 
   return <TerminalShell />;
 }
 
 function TerminalShell() {
+  const [authState, setAuthState] = useState<{
+    checked: boolean;
+    authenticated: boolean;
+    needsSetup: boolean;
+    envConfigured: boolean;
+  }>({
+    checked: false,
+    authenticated: false,
+    needsSetup: false,
+    envConfigured: false,
+  });
   const [snapshot, setSnapshot] = useState<TerminalSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('simulation');
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | 'YOU' | null>(null);
   const [sidebarHighlightId, setSidebarHighlightId] = useState<AgentId | 'YOU' | null>('journal');
-  const [selectedMint, setSelectedMint] = useState<string>('CLAUDIAmint11111111111111111111111111111111');
+  const [selectedMint, setSelectedMint] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
   const [simBusy, setSimBusy] = useState(false);
   const [alertBusy, setAlertBusy] = useState(false);
   const [overnightBusy, setOvernightBusy] = useState(false);
+  const [drawdownBusy, setDrawdownBusy] = useState(false);
   const [liveTradeOutputMint, setLiveTradeOutputMint] = useState<string | null>(null);
   const [phantomDexSubTab, setPhantomDexSubTab] = useState<PhantomDexSubTab>('swap');
 
@@ -51,12 +65,43 @@ function TerminalShell() {
     }, 4000);
   }, []);
 
-  const fetchState = useCallback(async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/state');
+      const res = await apiFetch('/api/auth/status');
+      const data = (await res.json()) as {
+        authenticated?: boolean;
+        needsSetup?: boolean;
+        envConfigured?: boolean;
+      };
+      setAuthState({
+        checked: true,
+        authenticated: Boolean(data.authenticated),
+        needsSetup: Boolean(data.needsSetup),
+        envConfigured: Boolean(data.envConfigured),
+      });
+    } catch {
+      setAuthState((prev) => ({ ...prev, checked: true, authenticated: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setSnapshot(null);
+      setAuthState((prev) => ({ ...prev, checked: true, authenticated: false }));
+      void checkAuthStatus();
+    });
+    void checkAuthStatus();
+    return () => setUnauthorizedHandler(null);
+  }, [checkAuthStatus]);
+
+  const fetchState = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/state');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as TerminalSnapshot;
       setSnapshot(data);
+      setSelectedMint((curr) => curr || data.tokens[0]?.mintAddress || '');
       setErrorMsg(null);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to load terminal state');
@@ -66,22 +111,45 @@ function TerminalShell() {
   }, []);
 
   useEffect(() => {
-    fetchState();
-    // Refresh live Solana RPC health & SOL/USD price on startup
-    fetch('/api/health')
-      .then(() => fetchState())
+    if (!authState.authenticated) return;
+    void fetchState();
+    apiFetch('/api/health')
+      .then((res) => {
+        if (res.ok) return fetchState();
+      })
       .catch(() => {});
-  }, [fetchState]);
+  }, [authState.authenticated, fetchState]);
+
+  const handleLogout = async () => {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network errors on logout
+    }
+    setBearerToken(null);
+    setSnapshot(null);
+    await checkAuthStatus();
+  };
 
   const handleToggleRun = async () => {
     try {
-      const res = await fetch('/api/pipeline/toggle', {
+      const res = await apiFetch('/api/pipeline/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
-      if (res.ok) {
-        setSnapshot((await res.json()) as TerminalSnapshot);
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        snapshot?: TerminalSnapshot;
+      };
+      if (data.snapshot) {
+        setSnapshot(data.snapshot);
+      } else if (res.ok) {
+        setSnapshot(data as unknown as TerminalSnapshot);
+      }
+      if (!res.ok) {
+        showToast(data.error || 'Không thể chuyển trạng thái hệ thống.');
       }
     } catch {
       showToast('Không thể chuyển trạng thái hệ thống.');
@@ -91,11 +159,16 @@ function TerminalShell() {
   const handleScanLive = async () => {
     setIsScanning(true);
     try {
-      const res = await fetch('/api/pipeline/scan-live', { method: 'POST' });
+      const res = await apiFetch('/api/pipeline/scan-live', { method: 'POST' });
       const data = (await res.json()) as {
         ok?: boolean;
         error?: string;
-        result?: { scannedCount: number; blockedCount: number };
+        result?: {
+          scannedCount: number;
+          blockedCount: number;
+          halted?: boolean;
+          haltReason?: string | null;
+        };
         snapshot?: TerminalSnapshot;
       };
       if (!res.ok || !data.ok || !data.snapshot) {
@@ -105,9 +178,15 @@ function TerminalShell() {
       if (data.snapshot.tokens[0]) {
         setSelectedMint(data.snapshot.tokens[0].mintAddress);
       }
-      showToast(
-        `Đã quét ${data.result?.scannedCount ?? 0} cặp token Solana (${data.result?.blockedCount ?? 0} token bị LP Auditor lọc).`
-      );
+      if (data.result?.halted) {
+        showToast(
+          `ĐÃ NGẮT MẠCH DRAWDOWN: ${data.result.haltReason ?? 'Chạm giới hạn sụt giảm ngày tối đa.'}`
+        );
+      } else {
+        showToast(
+          `Đã quét ${data.result?.scannedCount ?? 0} cặp token Solana (${data.result?.blockedCount ?? 0} token bị LP Auditor lọc).`
+        );
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Lỗi quét DEX trực tiếp');
     } finally {
@@ -117,15 +196,14 @@ function TerminalShell() {
 
   const handleSimulatePaper = async (
     mintAddress: string,
-    action: 'OPEN_SIM' | 'CLOSE_SIM',
-    simulatedMultiplier?: number
+    action: 'OPEN_SIM' | 'CLOSE_SIM'
   ) => {
     setSimBusy(true);
     try {
-      const res = await fetch('/api/paper/simulate', {
+      const res = await apiFetch('/api/paper/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mintAddress, action, equityPct: 4, simulatedMultiplier }),
+        body: JSON.stringify({ mintAddress, action, equityPct: 4 }),
       });
       const data = (await res.json()) as {
         ok?: boolean;
@@ -148,7 +226,7 @@ function TerminalShell() {
   const handleResetPaper = async () => {
     setSimBusy(true);
     try {
-      const res = await fetch('/api/paper/reset', {
+      const res = await apiFetch('/api/paper/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ startBalanceUsd: 50 }),
@@ -164,7 +242,7 @@ function TerminalShell() {
   };
 
   const handleMarkNotificationsRead = async () => {
-    const res = await fetch('/api/notifications/read', { method: 'POST' });
+    const res = await apiFetch('/api/notifications/read', { method: 'POST' });
     const data = (await res.json()) as { snapshot?: TerminalSnapshot };
     if (res.ok && data.snapshot) {
       setSnapshot(data.snapshot);
@@ -179,7 +257,7 @@ function TerminalShell() {
   }) => {
     setAlertBusy(true);
     try {
-      const res = await fetch('/api/alerts/rules', {
+      const res = await apiFetch('/api/alerts/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -200,7 +278,7 @@ function TerminalShell() {
   const handleToggleAlertRule = async (id: number, enabled: boolean) => {
     setAlertBusy(true);
     try {
-      const res = await fetch(`/api/alerts/rules/${id}`, {
+      const res = await apiFetch(`/api/alerts/rules/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
@@ -215,7 +293,7 @@ function TerminalShell() {
   const handleAcknowledgeAlertRule = async (id: number) => {
     setAlertBusy(true);
     try {
-      const res = await fetch(`/api/alerts/rules/${id}`, {
+      const res = await apiFetch(`/api/alerts/rules/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ acknowledged: true }),
@@ -230,7 +308,7 @@ function TerminalShell() {
   const handleDeleteAlertRule = async (id: number) => {
     setAlertBusy(true);
     try {
-      const res = await fetch(`/api/alerts/rules/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/alerts/rules/${id}`, { method: 'DELETE' });
       const data = (await res.json()) as { ok?: boolean; snapshot?: TerminalSnapshot };
       if (res.ok && data.snapshot) setSnapshot(data.snapshot);
     } finally {
@@ -239,7 +317,7 @@ function TerminalShell() {
   };
 
   const handleAcknowledgeAllAlerts = async () => {
-    const res = await fetch('/api/alerts/acknowledge-all', { method: 'POST' });
+    const res = await apiFetch('/api/alerts/acknowledge-all', { method: 'POST' });
     const data = (await res.json()) as { ok?: boolean; snapshot?: TerminalSnapshot };
     if (res.ok && data.snapshot) setSnapshot(data.snapshot);
   };
@@ -247,7 +325,7 @@ function TerminalShell() {
   const handleRunOvernight = async (resetStart70: boolean) => {
     setOvernightBusy(true);
     try {
-      const res = await fetch('/api/overnight/run', {
+      const res = await apiFetch('/api/overnight/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resetStart70 }),
@@ -280,7 +358,7 @@ function TerminalShell() {
     startBalanceUsd?: number;
   }) => {
     try {
-      const res = await fetch('/api/overnight/config', {
+      const res = await apiFetch('/api/overnight/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -302,6 +380,67 @@ function TerminalShell() {
       showToast(err instanceof Error ? err.message : 'Lỗi cập nhật Phiên Đêm');
     }
   };
+
+  const handleUpdateDrawdownConfig = async (payload: {
+    enabled?: boolean;
+    maxDailyDrawdownPct?: number;
+    minEquityThresholdUsd?: number | null;
+    clearHalt?: boolean;
+  }) => {
+    setDrawdownBusy(true);
+    try {
+      const res = await apiFetch('/api/simulation/drawdown-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        guard?: { isHalted: boolean; maxDailyDrawdownPct: number; effectiveHaltThresholdUsd: number };
+        snapshot?: TerminalSnapshot;
+      };
+      if (data.snapshot) {
+        setSnapshot(data.snapshot);
+      }
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Không thể cập nhật giới hạn sụt giảm ngày');
+      }
+      if (data.guard?.isHalted) {
+        showToast(
+          `Đã lưu ngưỡng bảo vệ ($${data.guard.effectiveHaltThresholdUsd.toFixed(2)}) — Hệ thống đang tạm dừng do chạm ngưỡng.`
+        );
+      } else {
+        showToast(
+          `Đã cập nhật giới hạn sụt giảm ngày (-${data.guard?.maxDailyDrawdownPct ?? 30}% · Ngưỡng $${data.guard?.effectiveHaltThresholdUsd.toFixed(2) ?? '—'}).`
+        );
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Lỗi cập nhật giới hạn sụt giảm ngày');
+    } finally {
+      setDrawdownBusy(false);
+    }
+  };
+
+  if (!authState.checked) {
+    return (
+      <div className="min-h-screen bg-[#031713] flex items-center justify-center p-6 font-mono-tabular text-sm text-[#43D7B1]">
+        Đang kiểm tra trạng thái xác thực Grok Bot Terminal...
+      </div>
+    );
+  }
+
+  if (!authState.authenticated) {
+    return (
+      <AuthGate
+        needsSetup={authState.needsSetup}
+        envConfigured={authState.envConfigured}
+        onAuthenticated={() =>
+          setAuthState((prev) => ({ ...prev, authenticated: true, needsSetup: false }))
+        }
+      />
+    );
+  }
 
   if (loading || !snapshot) {
     return (
@@ -329,6 +468,7 @@ function TerminalShell() {
         }}
         onToggleRun={handleToggleRun}
         onScanLive={handleScanLive}
+        onLogout={handleLogout}
         isScanning={isScanning}
       />
 
@@ -374,6 +514,8 @@ function TerminalShell() {
                 setActiveTab('livetrade');
               }}
               onToggleOvernightEnabled={(enabled) => handleUpdateOvernightConfig({ enabled })}
+              onUpdateDrawdownConfig={handleUpdateDrawdownConfig}
+              drawdownBusy={drawdownBusy}
             />
           )}
 

@@ -275,6 +275,22 @@ export interface OvernightRecap {
   topThreeCoins: OvernightTopCoin[];
 }
 
+export interface DailyDrawdownGuardState {
+  enabled: boolean;
+  maxDailyDrawdownPct: number;
+  minEquityThresholdUsd: number | null;
+  dailyStartEquityUsd: number;
+  dailyPeakEquityUsd: number;
+  realizedBalanceUsd: number;
+  unrealizedPnlUsd: number;
+  totalPortfolioEquityUsd: number;
+  currentDailyDrawdownPct: number;
+  effectiveHaltThresholdUsd: number;
+  isHalted: boolean;
+  haltedAt: string | null;
+  haltReason: string | null;
+}
+
 export type DexRouterOption = 'AUTO' | 'RAYDIUM' | 'ORCA' | 'METEORA' | 'PUMP_FUN';
 
 export interface DexTokenOption {
@@ -346,7 +362,7 @@ export interface TerminalSnapshot {
   appName: string;
   version: string;
   isRunning: boolean;
-  mode: 'PAPER TRADING · READ-ONLY';
+  mode: 'HYBRID: PAPER SIM + PHANTOM DEX';
   startedAt: string;
   solPriceUsd: number;
   solPriceSource: string;
@@ -372,5 +388,6 @@ export interface TerminalSnapshot {
   backtestSessions: BacktestSessionRecord[];
   overnightConfig: OvernightStrategyConfig;
   overnightRecap: OvernightRecap;
+  dailyDrawdownGuard: DailyDrawdownGuardState;
 }
 

@@ -5,6 +5,7 @@ import type {
   AgentRecord,
   BacktestDatasetRecord,
   BacktestSessionRecord,
+  DailyDrawdownGuardState,
   DashboardStats,
   EquityPoint,
   LiveTradeRecord,
@@ -293,6 +294,18 @@ export function initDatabase() {
       created_at TEXT NOT NULL,
       confirmed_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS AuthCredentials (
+      id TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS AuthSessions (
+      token_hash TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `);
 
   const tokenCols = db.prepare('PRAGMA table_info(TokenMetadata)').all() as Array<{ name: string }>;
@@ -347,37 +360,41 @@ export function getSetting(key: string, fallback = ''): string {
 
 export function seedInitialTerminalState() {
   const now = new Date().toISOString();
+  const timeShort = now.slice(11, 16);
 
   const initialSettings: Array<[string, string]> = [
     ['is_running', 'true'],
     ['paper_start_balance_usd', '50.00'],
-    ['paper_balance_usd', '94.35'],
-    ['tokens_checked', '129'],
+    ['paper_balance_usd', '50.00'],
+    ['tokens_checked', '0'],
     ['blocked_count', '0'],
-    ['total_launches_tracked', '4353'],
-    ['sol_price_usd', '142.20'],
-    ['sol_price_source', 'DexScreener / Reference'],
-    ['rpc_latency_ms', '33'],
-    ['rpc_slot', '312849200'],
+    ['total_launches_tracked', '0'],
+    ['sol_price_usd', '0'],
+    ['sol_price_source', 'Đang chờ đồng bộ DexScreener'],
+    ['rpc_latency_ms', '0'],
+    ['rpc_slot', '0'],
     ['rpc_endpoint', 'https://api.mainnet-beta.solana.com'],
-    ['latest_ticker', 'PROFIT TAKER · SOLD (SIM) $CLAUDIA 1.78x'],
+    ['latest_ticker', 'GROK BOT TERMINAL · VỐN ẢO KHỞI TẠO $50.00 · CHƯA CÓ LỆNH'],
     ['started_at', now],
+    ['sim_drawdown_guard_enabled', 'true'],
+    ['sim_max_daily_drawdown_pct', '30'],
+    ['sim_drawdown_halted', 'false'],
   ];
   for (const [k, v] of initialSettings) {
     setSetting(k, v);
   }
 
   const agentsSeed = [
-    ['launch_radar', 1, '01', 'LAUNCH RADAR', 'Radar phát hiện token mới', 'pump.fun + Raydium launches', 'SCAN', '#FF9B45', 'next $Bingwu · launched 7m', '129 pairs scanned', 129],
-    ['whale_watch', 2, '02', 'WHALE WATCH', 'Theo dõi ví lớn', 'wallets > $50k moving in', 'TRACK', '#49A9ED', '$62k whale into $Bingwu', '14 public wallets', 42],
-    ['sentiment', 3, '03', 'SENTIMENT', 'Phân tích tâm lý thị trường', 'X + Telegram velocity', 'READ', '#EF6682', 'mentions +95% · 30m', 'verified feed window', 38],
-    ['lp_auditor', 4, '04', 'LP AUDITOR', 'Kiểm toán thanh khoản', 'LP lock · mint · freeze', 'AUDIT', '#EF6682', 'passed $Bingwu', '0 blocked · strict RPC', 129],
-    ['holder_map', 5, '05', 'HOLDER MAP', 'Bản đồ phân bổ người nắm giữ', 'clusters · fresh wallets', 'MAP', '#F28482', '0 bad clusters', 'top 10 concentration OK', 64],
-    ['risk_sizer', 6, '06', 'RISK SIZER', 'Bộ tính quy mô và rủi ro', 'size by volatility · 2-4%', 'IDLE', '#A986F5', '3% of $94.35 (sim)', 'virtual cap enforced', 29],
-    ['sniper', 7, '07', 'SNIPER', 'Bộ mô phỏng thực thi', 'entry under 400 ms (paper)', 'LIVE', '#39DEA2', 'flat · waiting', 'paper-only executor', 7],
-    ['profit_taker', 8, '08', 'PROFIT TAKER', 'Bộ mô phỏng chốt lời', '2x · 5x · moonbag', 'LADDER', '#EAC64D', 'sold (sim) $CLAUDIA 1.78x', 'ladder active', 5],
-    ['stop_guard', 9, '09', 'STOP GUARD', 'Bộ giới hạn rủi ro', 'trail 22% · hard -12%', 'ARMED', '#FF7A59', '2 stops · max -12%', 'virtual equity guard', 2],
-    ['journal', 10, '10', 'JOURNAL', 'Nhật ký và báo cáo', 'logs every fill', 'ACTIVE', '#49A9ED', 'fill #14', 'SQLite persisted', 14],
+    ['launch_radar', 1, '01', 'LAUNCH RADAR', 'Radar phát hiện token mới', 'pump.fun + Raydium launches', 'SCAN', '#FF9B45', 'sẵn sàng quét DEX thật', '0 pairs scanned', 0],
+    ['whale_watch', 2, '02', 'WHALE WATCH', 'Theo dõi ví lớn', 'wallets > $50k moving in', 'TRACK', '#49A9ED', 'chờ dữ liệu luồng thật', 'public swaps tracked', 0],
+    ['sentiment', 3, '03', 'SENTIMENT', 'Phân tích tâm lý thị trường', 'X + Telegram velocity', 'READ', '#EF6682', 'chờ động lượng 5m/1h', 'verified feed window', 0],
+    ['lp_auditor', 4, '04', 'LP AUDITOR', 'Kiểm toán thanh khoản', 'LP lock · mint · freeze', 'AUDIT', '#EF6682', 'kiểm tra Mint/Freeze RPC', '0 blocked · strict RPC', 0],
+    ['holder_map', 5, '05', 'HOLDER MAP', 'Bản đồ phân bổ người nắm giữ', 'clusters · fresh wallets', 'MAP', '#F28482', 'sẵn sàng phân tích', 'top holder risk check', 0],
+    ['risk_sizer', 6, '06', 'RISK SIZER', 'Bộ tính quy mô và rủi ro', 'size by volatility · 2-4%', 'IDLE', '#A986F5', '4% of $50.00 (sim)', 'virtual cap enforced', 0],
+    ['sniper', 7, '07', 'SNIPER', 'Bộ mô phỏng thực thi', 'entry under 400 ms (paper)', 'LIVE', '#39DEA2', 'flat · chưa mở lệnh', 'paper-only executor', 0],
+    ['profit_taker', 8, '08', 'PROFIT TAKER', 'Bộ mô phỏng chốt lời', '2x · 5x · moonbag', 'LADDER', '#EAC64D', 'đóng theo giá DEX thật', 'ladder active', 0],
+    ['stop_guard', 9, '09', 'STOP GUARD', 'Bộ giới hạn rủi ro', 'trail 22% · hard -12%', 'ARMED', '#FF7A59', 'chưa kích hoạt dừng lỗ', 'virtual equity guard', 0],
+    ['journal', 10, '10', 'JOURNAL', 'Nhật ký và báo cáo', 'logs every fill', 'ACTIVE', '#49A9ED', '0 fills recorded', 'SQLite persisted', 0],
   ];
 
   const insertAgent = db.prepare(`
@@ -388,85 +405,32 @@ export function seedInitialTerminalState() {
     insertAgent.run(...a, now);
   }
 
-  const tokensSeed = [
-    ['So11111111111111111111111111111111111111112', '$Bingwu', 'Bingwu Token', 'PairBingwu001', 'pump.fun', 0.0001231, 34.2, 34.0, 118.4, 84500, 312000, 412000, 892, 84, 1, 1, 'MEDIUM RISK', 'WATCHING', 'DexScreener Feed', now, '7m', 62000, 'mentions +95% · 30m', 'Whale inflow $62k detected · awaiting Sniper trigger'],
-    ['ZELDAmint1111111111111111111111111111111111', '$ZELDA', 'Zelda Solana', 'PairZelda002', 'raydium', 0.00003602, 12.4, 37.0, 92.1, 61200, 198000, 285000, 640, 91, 1, 1, 'MEDIUM RISK', 'PASSED', 'DexScreener Feed', now, '11m', 18400, 'steady +42%', 'LP Auditor passed · Mint & Freeze revoked'],
-    ['1SOLmint11111111111111111111111111111111111', '$1SOL', 'One Sol', 'Pair1Sol003', 'pump.fun', 0.0002257, 4.5, 40.0, 1080.0, 95400, 742000, 1450000, 2180, 100, 1, 1, 'LOW RISK', 'CLOSED', 'Session Archive', now, '16m', 74000, 'peak velocity', 'Best multiplier 11.8x recorded · partial stop hit later'],
-    ['GRANNYmint111111111111111111111111111111111', '$GRANNY', 'Granny Meme', 'PairGranny004', 'raydium', 0.00004748, 8.9, 43.0, 64.5, 53800, 146000, 198000, 518, 79, 1, 1, 'MEDIUM RISK', 'PASSED', 'DexScreener Feed', now, '21m', 14200, 'rising +31%', 'LP locked · 0 bad holder clusters'],
-    ['CLAUDIAmint11111111111111111111111111111111', '$CLAUDIA', 'Claudia AI', 'PairClaudia005', 'pump.fun', 0.0003338, 14.1, 78.0, 145.0, 128000, 584000, 1100000, 1599, 98, 1, 1, 'HIGH RISK', 'CLOSED', 'Paper Session', now, '24m', 41500, 'buys 82% of flow', 'pair 9m old · buys 82% of flow'],
-  ];
+  db.prepare('INSERT INTO EquityHistory (timestamp, label, balance_usd, pnl_delta_usd, note) VALUES (?, ?, ?, ?, ?)').run(
+    now,
+    timeShort,
+    50.0,
+    0.0,
+    'Khởi tạo phiên mô phỏng (Paper Trading $50.00)'
+  );
 
-  const insertToken = db.prepare(`
-    INSERT INTO TokenMetadata (
-      mint_address, symbol, name, pair_address, dex_id, price_usd,
-      price_change_5m, price_change_1h, price_change_24h, liquidity_usd,
-      volume_24h_usd, fdv_usd, holders_count, bonding_curve_pct,
-      mint_authority_revoked, freeze_authority_revoked, risk_level, status,
-      source, source_timestamp, detected_ago, whale_inflow_usd, sentiment_velocity, reason
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const t of tokensSeed) {
-    insertToken.run(...t);
-  }
-
-  const tradesSeed = [
-    ['1SOLmint11111111111111111111111111111111111', '$1SOL', 'CLOSED', 'LOW RISK', 0.0000191, 0.0000192, 0.0002257, 130208, 2.50, 4.0, 0.02, 0.5, 27.00, 11.80, 1450000, 95400, 100, 2180, 'early breakout · clean LP audit', 'ladder take-profit 11.8x (sim)', JSON.stringify([1, 1.4, 2.2, 4.1, 6.8, 9.5, 11.8, 11.2]), '2026-11-25T23:12:00Z', '2026-11-25T23:28:00Z'],
-    ['1SOLmint11111111111111111111111111111111111', '$1SOL', 'CLOSED', 'MEDIUM RISK', 0.0002290, 0.0002300, 0.0002185, 9560, 2.20, 3.0, 0.01, 0.4, -0.11, 0.95, 1410000, 91200, 100, 2180, 're-entry momentum check', 'stop hit · momentum gone', JSON.stringify([1, 1.03, 1.01, 0.98, 0.96, 0.95]), '2026-11-25T23:41:00Z', '2026-11-25T23:46:00Z'],
-    ['WhiteCow111111111111111111111111111111111111', '$WhiteCow', 'CLOSED', 'MEDIUM RISK', 0.0000840, 0.0000845, 0.0003388, 38698, 3.27, 4.0, 0.02, 0.6, 9.84, 4.01, 690000, 74000, 96, 1120, 'bonding curve 96% · fast fill', 'runner trailed out', JSON.stringify([1, 1.25, 1.8, 2.6, 3.5, 4.4, 4.01]), '2026-11-25T23:49:00Z', '2026-11-25T23:53:00Z'],
-    ['GRIFFIN1111111111111111111111111111111111111', '$GRIFFIN', 'CLOSED', 'LOW RISK', 0.0001120, 0.0001126, 0.0002980, 26642, 3.00, 3.5, 0.02, 0.5, 4.95, 2.65, 520000, 64500, 94, 940, 'whale accumulation + LP locked', 'take-profit 2.65x (sim)', JSON.stringify([1, 1.15, 1.5, 1.9, 2.4, 2.65]), '2026-11-25T23:54:00Z', '2026-11-25T23:56:00Z'],
-    ['CATNIP11111111111111111111111111111111111111', '$CATNIP', 'CLOSED', 'HIGH RISK', 0.0000620, 0.0000624, 0.0000549, 44871, 2.80, 3.0, 0.02, 0.7, -0.34, 0.88, 210000, 41200, 82, 490, 'high velocity scalp', 'hard stop -12% triggered', JSON.stringify([1, 1.02, 0.97, 0.92, 0.88]), '2026-11-25T23:55:00Z', '2026-11-25T23:57:00Z'],
-    ['PEPECAT1111111111111111111111111111111111111', '$PEPECAT', 'CLOSED', 'MEDIUM RISK', 0.0001500, 0.0001508, 0.0001740, 21883, 3.30, 3.8, 0.02, 0.5, 0.16, 1.15, 410000, 58000, 89, 780, 'clean holder distribution', 'partial scale out', JSON.stringify([1, 1.06, 1.12, 1.19, 1.15]), '2026-11-25T23:57:00Z', '2026-11-25T23:58:00Z'],
-    ['CLAUDIAmint11111111111111111111111111111111', '$CLAUDIA', 'CLOSED', 'HIGH RISK', 0.0001875, 0.0001875, 0.0003338, 19466, 3.65, 4.0, 0.03, 0.5, 2.85, 1.78, 1100000, 128000, 98, 1599, 'pair 9m old · buys 82% of flow', 'runner trailed out', JSON.stringify([1, 1.08, 1.24, 1.42, 1.56, 1.94, 1.78]), '2026-11-25T23:58:00Z', '2026-11-26T00:02:00Z'],
-  ];
-
-  const insertTrade = db.prepare(`
-    INSERT INTO PaperTrades (
-      mint_address, symbol, status, risk_level, reference_price_usd, entry_price_sim_usd,
-      exit_price_sim_usd, quantity_sim, equity_allocated_usd, equity_pct, fee_sim_usd,
-      slippage_pct, pnl_usd, multiplier, mcap_usd, liquidity_usd, bonding_curve_pct,
-      holders_count, reason, exit_reason, sparkline_json, opened_at, closed_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const tr of tradesSeed) {
-    insertTrade.run(...tr);
-  }
-
-  const equitySeed: Array<[string, string, number, number, string]> = [
-    ['2026-11-25T23:00:00Z', '23:00', 50.00, 0.00, 'Session initialized (Paper Trading)'],
-    ['2026-11-25T23:28:00Z', '23:28', 77.00, 27.00, 'SELL (SIM) $1SOL 11.8x'],
-    ['2026-11-25T23:46:00Z', '23:46', 76.89, -0.11, 'STOP (SIM) $1SOL -12% guard'],
-    ['2026-11-25T23:53:00Z', '23:53', 86.73, 9.84, 'SELL (SIM) $WhiteCow 4.01x'],
-    ['2026-11-25T23:56:00Z', '23:56', 91.68, 4.95, 'SELL (SIM) $GRIFFIN 2.65x'],
-    ['2026-11-25T23:57:00Z', '23:57', 91.34, -0.34, 'STOP (SIM) $CATNIP -12%'],
-    ['2026-11-25T23:58:00Z', '23:58', 91.50, 0.16, 'SELL (SIM) $PEPECAT 1.15x'],
-    ['2026-11-26T00:02:00Z', '00:02', 94.35, 2.85, 'SELL (SIM) $CLAUDIA 1.78x'],
-  ];
-  const insertEq = db.prepare('INSERT INTO EquityHistory (timestamp, label, balance_usd, pnl_delta_usd, note) VALUES (?, ?, ?, ?, ?)');
-  for (const eq of equitySeed) {
-    insertEq.run(...eq);
-  }
-
-  const logsSeed: Array<[string, string, string, string, string | null, string | null, string, string, string, string, number | null]> = [
-    ['2026-11-25T23:46:00Z', '23:46', 'stop_guard', 'STOP GUARD', '$1SOL', '1SOLmint11111111111111111111111111111111111', 'STOP_SIM', 'STOP (SIM) $1SOL', 'stop hit · momentum gone', '-$0.11', 0],
-    ['2026-11-25T23:49:00Z', '23:49', 'sniper', 'SNIPER', '$WhiteCow', 'WhiteCow111111111111111111111111111111111111', 'BUY_SIM', 'BUY (SIM) $WhiteCow size 4%', 'bonding curve 96% · fast fill', 'size 4%', null],
-    ['2026-11-25T23:53:00Z', '23:53', 'profit_taker', 'PROFIT TAKER', '$WhiteCow', 'WhiteCow111111111111111111111111111111111111', 'SELL_SIM', 'SELL (SIM) $WhiteCow', 'runner trailed out', '+$9.84 4.01x', 1],
-    ['2026-11-25T23:58:00Z', '23:58', 'sniper', 'SNIPER', '$CLAUDIA', 'CLAUDIAmint11111111111111111111111111111111', 'BUY_SIM', 'BUY (SIM) $CLAUDIA size 4%', 'pair 9m old · buys 82% of flow', 'size 4%', null],
-    ['2026-11-26T00:02:00Z', '00:02', 'profit_taker', 'PROFIT TAKER', '$CLAUDIA', 'CLAUDIAmint11111111111111111111111111111111', 'SELL_SIM', 'SELL (SIM) $CLAUDIA', 'runner trailed out', '+$2.85 1.78x', 1],
-    ['2026-11-26T00:03:15Z', '00:03', 'lp_auditor', 'LP AUDITOR', '$Bingwu', 'So11111111111111111111111111111111111111112', 'AUDIT', 'AUDIT PASS $Bingwu', 'LP locked · mint & freeze revoked', 'PASS', 1],
-    ['2026-11-26T00:03:45Z', '00:03', 'whale_watch', 'WHALE WATCH', '$Bingwu', 'So11111111111111111111111111111111111111112', 'TRACK', '$62k whale inflow into $Bingwu', 'public wallet accumulation detected', '+$62k', 1],
-  ];
-
-  const insertLog = db.prepare(`
-    INSERT INTO SystemLogs (timestamp, time_short, agent_id, agent_name, token_symbol, mint_address, event_type, message, reason, result_badge, is_positive)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const lg of logsSeed) {
-    insertLog.run(...lg);
-  }
+  appendLog({
+    agentId: 'journal',
+    agentName: 'JOURNAL',
+    eventType: 'INFO',
+    message: 'Khởi tạo cơ sở dữ liệu sạch ($50.00 vốn ảo · 0 lệnh mẫu)',
+    reason: 'Nhấn "Quét DEX Solana trực tiếp" để nạp cặp token thật từ thị trường',
+    resultBadge: 'READY',
+    isPositive: null,
+  });
 
   const notifSeed: Array<[string, string, string, number, string]> = [
-    ['Hệ thống sẵn sàng (Read-Only + Paper)', 'Chế độ an toàn đang bật: không có đường ký hoặc gửi giao dịch thật lên Solana.', 'INFO', 0, now],
-    ['$Bingwu vượt qua LP Auditor', 'Whale Watch ghi nhận dòng tiền công khai $62k. Có thể nhấn "Scan Live DEX" để quét thị trường Solana thật.', 'INFO', 0, now],
+    [
+      'Khởi tạo sạch: Mô phỏng Paper + Phantom Non-Custodial',
+      'Số dư mô phỏng bắt đầu ở $50.00 (0 lệnh mẫu). Khu vực Giao dịch Thật qua Jupiter DEX & Ví Phantom tách biệt hoàn toàn và yêu cầu bạn tự ký xác nhận trên Phantom.',
+      'INFO',
+      0,
+      now,
+    ],
   ];
   const insertNotif = db.prepare('INSERT INTO Notifications (title, message, severity, is_read, created_at) VALUES (?, ?, ?, ?, ?)');
   for (const nf of notifSeed) {
@@ -578,7 +542,7 @@ export function getLiveTrades(): LiveTradeRecord[] {
       priorityFeeLamports: Number(r.priority_fee_lamports),
       status: String(r.status) as LiveTradeRecord['status'],
       errorMessage: r.error_message ? String(r.error_message) : null,
-      solscanUrl: `https://solscan.io/tx/${signature}`,
+      solscanUrl: `https://solscan.io/tx/${encodeURIComponent(signature)}`,
       createdAt: String(r.created_at),
       confirmedAt: r.confirmed_at ? String(r.confirmed_at) : null,
     };
@@ -667,7 +631,7 @@ export function getWalletTransfers(): WalletTransferRecord[] {
       signature,
       status: String(r.status) as WalletTransferRecord['status'],
       note: r.note ? String(r.note) : null,
-      solscanUrl: `https://solscan.io/tx/${signature}`,
+      solscanUrl: `https://solscan.io/tx/${encodeURIComponent(signature)}`,
       createdAt: String(r.created_at),
       confirmedAt: r.confirmed_at ? String(r.confirmed_at) : null,
     };
@@ -1082,6 +1046,9 @@ export function getOvernightStrategyConfig(): OvernightStrategyConfig {
   const enabled = getSetting('overnight_enabled', 'true') === 'true';
   const startTime = getSetting('overnight_start_time', '23:00');
   const endTime = getSetting('overnight_end_time', '07:00');
+  const drawdownLimitPct = Number(
+    getSetting('sim_max_daily_drawdown_pct', getSetting('overnight_daily_drawdown_pct', '30'))
+  );
   return {
     enabled,
     promptName: 'grok-bot-overnight.prompt',
@@ -1107,12 +1074,257 @@ export function getOvernightStrategyConfig(): OvernightStrategyConfig {
     trailingStopPct: Number(getSetting('overnight_trailing_stop_pct', '25')),
     hardStopPct: Number(getSetting('overnight_hard_stop_pct', '12')),
     timeStopMinutes: Number(getSetting('overnight_time_stop_min', '25')),
-    dailyDrawdownLimitPct: Number(getSetting('overnight_daily_drawdown_pct', '30')),
+    dailyDrawdownLimitPct: Number.isFinite(drawdownLimitPct) && drawdownLimitPct > 0 ? drawdownLimitPct : 30,
   };
+}
+
+function isSameLocalDayIso(iso: string, ref: Date): boolean {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  );
+}
+
+const DEFAULT_AGENT_STATUSES: Record<AgentRecord['id'], { status: string; metricSecondary: string }> = {
+  launch_radar: { status: 'SCAN', metricSecondary: 'pump.fun + Raydium' },
+  whale_watch: { status: 'TRACK', metricSecondary: 'public swaps tracked' },
+  sentiment: { status: 'READ', metricSecondary: 'verified feed window' },
+  lp_auditor: { status: 'AUDIT', metricSecondary: 'strict Mint/Freeze RPC' },
+  holder_map: { status: 'MAP', metricSecondary: 'top holder risk check' },
+  risk_sizer: { status: 'READY', metricSecondary: 'virtual cap enforced' },
+  sniper: { status: 'LIVE', metricSecondary: 'paper-only executor' },
+  profit_taker: { status: 'LADDER', metricSecondary: 'ladder active' },
+  stop_guard: { status: 'ARMED', metricSecondary: 'daily drawdown guard active' },
+  journal: { status: 'ACTIVE', metricSecondary: 'SQLite persisted' },
+};
+
+export function restoreAgentsFromHalt() {
+  const haltedRows = db.prepare(`SELECT id FROM Agents WHERE status = 'HALTED'`).all() as Array<{ id: string }>;
+  for (const row of haltedRows) {
+    const id = row.id as AgentRecord['id'];
+    const def = DEFAULT_AGENT_STATUSES[id];
+    if (def) {
+      updateAgentState(id, def.status, 'resumed by operator', def.metricSecondary, null);
+    }
+  }
+}
+
+export function getDailyDrawdownGuardState(): DailyDrawdownGuardState {
+  const enabled = getSetting('sim_drawdown_guard_enabled', 'true') === 'true';
+  const rawMaxPct = Number(
+    getSetting('sim_max_daily_drawdown_pct', getSetting('overnight_daily_drawdown_pct', '30'))
+  );
+  const maxDailyDrawdownPct = Number.isFinite(rawMaxPct) ? Math.min(95, Math.max(1, rawMaxPct)) : 30;
+
+  const rawMinEq = getSetting('sim_min_equity_threshold_usd', '');
+  const parsedMinEq = rawMinEq.trim() !== '' ? Number(rawMinEq) : NaN;
+  const minEquityThresholdUsd =
+    Number.isFinite(parsedMinEq) && parsedMinEq >= 0 ? Number(parsedMinEq.toFixed(2)) : null;
+
+  const realizedBalanceUsd = Number(Number(getSetting('paper_balance_usd', '50')).toFixed(2));
+  const paperStartBal = Number(Number(getSetting('paper_start_balance_usd', '50')).toFixed(2));
+
+  // Compute unrealized PnL across all OPEN simulated positions using latest TokenMetadata prices
+  const openTrades = db
+    .prepare(
+      `SELECT pt.equity_allocated_usd, pt.entry_price_sim_usd, tm.price_usd as live_price_usd
+       FROM PaperTrades pt
+       LEFT JOIN TokenMetadata tm ON tm.mint_address = pt.mint_address
+       WHERE pt.status = 'OPEN'`
+    )
+    .all() as Array<{
+      equity_allocated_usd: number;
+      entry_price_sim_usd: number;
+      live_price_usd: number | null;
+    }>;
+
+  let unrealizedPnlUsd = 0;
+  for (const tr of openTrades) {
+    const livePrice = Number(tr.live_price_usd);
+    const entryPrice = Number(tr.entry_price_sim_usd);
+    const allocated = Number(tr.equity_allocated_usd);
+    if (Number.isFinite(livePrice) && livePrice > 0 && Number.isFinite(entryPrice) && entryPrice > 0) {
+      const mult = livePrice / entryPrice;
+      unrealizedPnlUsd += Math.max(-allocated, allocated * (mult - 1));
+    }
+  }
+  unrealizedPnlUsd = Number(unrealizedPnlUsd.toFixed(2));
+
+  const totalPortfolioEquityUsd = Number(Math.max(0, realizedBalanceUsd + unrealizedPnlUsd).toFixed(2));
+
+  // Daily baseline & daily peak from EquityHistory for today
+  const now = new Date();
+  const eqRows = db
+    .prepare('SELECT timestamp, balance_usd FROM EquityHistory ORDER BY id ASC')
+    .all() as Array<{ timestamp: string; balance_usd: number }>;
+
+  const todayRows = eqRows.filter((r) => isSameLocalDayIso(r.timestamp, now));
+  const priorRows = eqRows.filter((r) => !isSameLocalDayIso(r.timestamp, now));
+
+  const dailyStartEquityUsd =
+    priorRows.length > 0
+      ? Number(priorRows[priorRows.length - 1].balance_usd)
+      : todayRows.length > 0
+      ? Number(todayRows[0].balance_usd)
+      : paperStartBal;
+
+  let dailyPeakEquityUsd = dailyStartEquityUsd;
+  for (const row of todayRows) {
+    const val = Number(row.balance_usd);
+    if (val > dailyPeakEquityUsd) dailyPeakEquityUsd = val;
+  }
+  if (totalPortfolioEquityUsd > dailyPeakEquityUsd) {
+    dailyPeakEquityUsd = totalPortfolioEquityUsd;
+  }
+  dailyPeakEquityUsd = Number(Math.max(0, dailyPeakEquityUsd).toFixed(2));
+
+  const pctDerivedFloorUsd = Number(
+    (dailyPeakEquityUsd * (1 - maxDailyDrawdownPct / 100)).toFixed(2)
+  );
+  const effectiveHaltThresholdUsd =
+    minEquityThresholdUsd !== null
+      ? Number(Math.max(pctDerivedFloorUsd, minEquityThresholdUsd).toFixed(2))
+      : pctDerivedFloorUsd;
+
+  const currentDailyDrawdownPct =
+    dailyPeakEquityUsd > 0
+      ? Number(
+          Math.max(
+            0,
+            ((dailyPeakEquityUsd - totalPortfolioEquityUsd) / dailyPeakEquityUsd) * 100
+          ).toFixed(1)
+        )
+      : 0;
+
+  const storedHalted = getSetting('sim_drawdown_halted', 'false') === 'true';
+  const storedHaltedAt = getSetting('sim_drawdown_halted_at', '') || null;
+  const storedHaltReason = getSetting('sim_drawdown_halt_reason', '') || null;
+
+  const isBreached =
+    enabled &&
+    ((dailyPeakEquityUsd > 0 && totalPortfolioEquityUsd <= effectiveHaltThresholdUsd) ||
+      (minEquityThresholdUsd !== null && totalPortfolioEquityUsd <= minEquityThresholdUsd));
+
+  const isHalted = enabled && (storedHalted || isBreached);
+  const computedHaltReason = isBreached
+    ? `Tổng tài sản ($${totalPortfolioEquityUsd.toFixed(2)}) giảm xuống dưới ngưỡng cho phép ($${effectiveHaltThresholdUsd.toFixed(2)} · Sụt giảm ngày -${currentDailyDrawdownPct}% / giới hạn -${maxDailyDrawdownPct}%).`
+    : storedHaltReason;
+
+  return {
+    enabled,
+    maxDailyDrawdownPct,
+    minEquityThresholdUsd,
+    dailyStartEquityUsd: Number(dailyStartEquityUsd.toFixed(2)),
+    dailyPeakEquityUsd,
+    realizedBalanceUsd,
+    unrealizedPnlUsd,
+    totalPortfolioEquityUsd,
+    currentDailyDrawdownPct,
+    effectiveHaltThresholdUsd,
+    isHalted,
+    haltedAt: isHalted ? storedHaltedAt : null,
+    haltReason: isHalted ? computedHaltReason : null,
+  };
+}
+
+export function evaluateAndEnforceDailyDrawdownGuard(options?: {
+  allowClearIfHealthy?: boolean;
+}): DailyDrawdownGuardState {
+  const state = getDailyDrawdownGuardState();
+  const isBreached =
+    state.enabled &&
+    ((state.dailyPeakEquityUsd > 0 &&
+      state.totalPortfolioEquityUsd <= state.effectiveHaltThresholdUsd) ||
+      (state.minEquityThresholdUsd !== null &&
+        state.totalPortfolioEquityUsd <= state.minEquityThresholdUsd));
+
+  const wasHalted = getSetting('sim_drawdown_halted', 'false') === 'true';
+
+  if (isBreached) {
+    const nowIso = new Date().toISOString();
+    const reason =
+      state.haltReason ??
+      `Tổng tài sản ($${state.totalPortfolioEquityUsd.toFixed(2)}) chạm ngưỡng ngắt mạch ($${state.effectiveHaltThresholdUsd.toFixed(2)}).`;
+
+    if (!wasHalted) {
+      setSetting('sim_drawdown_halted', 'true');
+      setSetting('sim_drawdown_halted_at', nowIso);
+      setSetting('sim_drawdown_halt_reason', reason);
+      setSetting('is_running', 'false');
+      setSetting(
+        'latest_ticker',
+        `HALT · CHẠM GIỚI HẠN SỤT GIẢM NGÀY ($${state.totalPortfolioEquityUsd.toFixed(2)} <= $${state.effectiveHaltThresholdUsd.toFixed(2)})`
+      );
+
+      const allAgentIds: AgentRecord['id'][] = [
+        'launch_radar',
+        'whale_watch',
+        'sentiment',
+        'lp_auditor',
+        'holder_map',
+        'risk_sizer',
+        'sniper',
+        'profit_taker',
+        'stop_guard',
+        'journal',
+      ];
+      for (const agentId of allAgentIds) {
+        updateAgentState(
+          agentId,
+          'HALTED',
+          `EQ $${state.totalPortfolioEquityUsd.toFixed(2)} <= $${state.effectiveHaltThresholdUsd.toFixed(2)}`,
+          `Daily DD -${state.currentDailyDrawdownPct}% / -${state.maxDailyDrawdownPct}%`,
+          'Halted by Maximum Daily Drawdown limit'
+        );
+      }
+
+      appendLog({
+        agentId: 'stop_guard',
+        agentName: 'DAILY DRAWDOWN GUARD',
+        eventType: 'WARN',
+        message: `NGẮT MẠCH TOÀN BỘ AGENT · Sụt giảm ngày -${state.currentDailyDrawdownPct}%`,
+        reason,
+        resultBadge: `HALT $${state.totalPortfolioEquityUsd.toFixed(2)}`,
+        isPositive: false,
+      });
+
+      db.prepare(
+        'INSERT INTO Notifications (title, message, severity, is_read, created_at) VALUES (?, ?, ?, 0, ?)'
+      ).run('Ngắt mạch Maximum Daily Drawdown', reason, 'ALERT', nowIso);
+    } else if (getSetting('is_running', 'true') === 'true') {
+      setSetting('is_running', 'false');
+    }
+
+    return {
+      ...state,
+      isHalted: true,
+      haltedAt: getSetting('sim_drawdown_halted_at', nowIso) || nowIso,
+      haltReason: reason,
+    };
+  }
+
+  if (!state.enabled || (options?.allowClearIfHealthy && wasHalted)) {
+    setSetting('sim_drawdown_halted', 'false');
+    setSetting('sim_drawdown_halted_at', '');
+    setSetting('sim_drawdown_halt_reason', '');
+    restoreAgentsFromHalt();
+    return {
+      ...state,
+      isHalted: false,
+      haltedAt: null,
+      haltReason: null,
+    };
+  }
+
+  return state;
 }
 
 export function computeOvernightRecap(): OvernightRecap {
   const cfg = getOvernightStrategyConfig();
+  const guard = getDailyDrawdownGuardState();
   const startBalanceUsd = Number(getSetting('paper_start_balance_usd', '50'));
   const endBalanceUsd = Number(getSetting('paper_balance_usd', '50'));
   const netPnlUsd = Number((endBalanceUsd - startBalanceUsd).toFixed(2));
@@ -1127,8 +1339,8 @@ export function computeOvernightRecap(): OvernightRecap {
   if (endBalanceUsd > peakEquityUsd) peakEquityUsd = endBalanceUsd;
 
   const drawdownFromPeakPct =
-    peakEquityUsd > 0 ? Number((((peakEquityUsd - endBalanceUsd) / peakEquityUsd) * 100).toFixed(1)) : 0;
-  const drawdownPaused = drawdownFromPeakPct >= cfg.dailyDrawdownLimitPct;
+    peakEquityUsd > 0 ? Number((((peakEquityUsd - guard.totalPortfolioEquityUsd) / peakEquityUsd) * 100).toFixed(1)) : 0;
+  const drawdownPaused = guard.isHalted || drawdownFromPeakPct >= cfg.dailyDrawdownLimitPct;
 
   const openPositionsCount = (
     db.prepare(`SELECT COUNT(*) as c FROM PaperTrades WHERE status = 'OPEN'`).get() as { c: number }
@@ -1192,7 +1404,7 @@ export function computeOvernightRecap(): OvernightRecap {
     netPnlUsd,
     netPnlPct,
     peakEquityUsd: Number(peakEquityUsd.toFixed(2)),
-    drawdownFromPeakPct,
+    drawdownFromPeakPct: Math.max(0, drawdownFromPeakPct),
     drawdownPaused,
     openPositionsCount,
     consecutiveLosses,

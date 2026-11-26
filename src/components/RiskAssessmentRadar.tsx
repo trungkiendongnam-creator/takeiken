@@ -129,6 +129,8 @@ export const RiskAssessmentRadar: React.FC<RiskAssessmentRadarProps> = ({
             score =
               tok.mintAuthorityRevoked === false || tok.freezeAuthorityRevoked === false
                 ? 94
+                : tok.mintAuthorityRevoked === null || tok.freezeAuthorityRevoked === null
+                ? 86
                 : tok.liquidityUsd < 35000
                 ? 76
                 : tok.liquidityUsd < 85000
@@ -137,7 +139,9 @@ export const RiskAssessmentRadar: React.FC<RiskAssessmentRadarProps> = ({
             driver =
               tok.status === 'FILTERED'
                 ? 'Bị chặn bởi kiểm tra LP / Quyền Mint-Freeze'
-                : `LP $${Math.round(tok.liquidityUsd).toLocaleString()} · Quyền an toàn`;
+                : tok.mintAuthorityRevoked === true && tok.freezeAuthorityRevoked === true
+                ? `LP $${Math.round(tok.liquidityUsd).toLocaleString()} · Quyền an toàn`
+                : `LP $${Math.round(tok.liquidityUsd).toLocaleString()} · Chưa xác minh Mint/Freeze`;
             break;
           case 'holder_map':
             score = tok.holdersCount < 450 ? 78 : tok.holdersCount < 1100 ? 48 : 26;

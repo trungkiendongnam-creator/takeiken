@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Activity,
   FlaskConical,
+  LogOut,
   Moon,
   Pause,
   Play,
@@ -23,6 +24,7 @@ interface HeaderBarProps {
   onOpenPhantomConnect?: () => void;
   onToggleRun: () => void;
   onScanLive: () => void;
+  onLogout: () => void;
   isScanning: boolean;
 }
 
@@ -33,6 +35,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenPhantomConnect,
   onToggleRun,
   onScanLive,
+  onLogout,
   isScanning,
 }) => {
   const [uptimeStr, setUptimeStr] = useState('00:04:00');
@@ -79,9 +82,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           >
             <ShieldCheck className="h-3 w-3" />
             {wallet.connected && wallet.connectionMethod === 'PHANTOM_EXTENSION'
-              ? 'JUPITER DEX · PHANTOM NON-CUSTODIAL'
-              : 'PAPER TRADING · JUPITER DEX SẴN SÀNG'}
+              ? 'MÔ PHỎNG + PHANTOM DEX (NON-CUSTODIAL)'
+              : 'MÔ PHỎNG PAPER + JUPITER DEX (KÝ PHANTOM)'}
           </span>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="inline-flex items-center gap-1 rounded border border-[#145B4B] bg-[#06231F] px-2 py-0.5 font-mono-tabular text-[11px] text-[#8FA9A0] hover:border-[#EF6682] hover:text-[#EF6682] cursor-pointer"
+            title="Đăng xuất phiên làm việc"
+          >
+            <LogOut className="h-3 w-3" />
+            Đăng xuất
+          </button>
         </div>
       </div>
 
@@ -192,7 +204,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[#E6F2ED] whitespace-nowrap">
                 <span>{wallet.connected ? wallet.shortAddress : 'Ví Phantom'}</span>
                 <span className="font-mono-tabular text-[10px] text-[#43D7B1]">
-                  {wallet.connected && wallet.connectionMethod === 'PHANTOM_EXTENSION' ? 'KÝ AN TOÀN' : 'CHỈ ĐỌC'}
+                  {wallet.connected && wallet.connectionMethod === 'PHANTOM_EXTENSION'
+                    ? 'NON-CUSTODIAL'
+                    : wallet.connected
+                    ? 'CHỈ ĐỌC ĐỊA CHỈ'
+                    : 'KẾT NỐI VÍ'}
                 </span>
               </div>
               <div className="font-mono-tabular text-[11px] text-[#8FA9A0] whitespace-nowrap">
@@ -246,7 +262,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             }`}
           >
             <Moon className="h-3.5 w-3.5" />
-            Kịch bản Qua đêm ($70)
+            Kịch bản Qua đêm (${snapshot.overnightConfig.startBalanceUsd.toFixed(0)})
           </button>
 
           <button
